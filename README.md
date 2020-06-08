@@ -118,9 +118,9 @@ The following information are output in the first output file.  Most entries are
 - `Algorithm:` A string identifying the k-modes algorithm used.
 - `Initialization:` A string identifying what kind of initialization method was used.
 - `Run for N initializations` a line indicating the number of initializations run.  There will be this many lines of output in the second output file.
-- `Number of clusters to estimate:` An integer with the user-selected value of $K$, number of clusters.
+- `Number of clusters to estimate:` An integer with the user-selected value of K, number of clusters.
 - `Initialization output file:` This key is included if the user provided a second filename to the `--outfile` argument.  This file will contain the initialization output.
-- If the ```--column`` argument was provided, then these additional lines are provided:
+- If the `--column` argument was provided, then these additional lines are provided:
 	- `Number of true clusters:` An integer indicating the true number of clusters.
 	- `True cluster assignments:` The next line contains the true cluster assignments of each observation, same order as in the data file.
 	- `True cluster sizes:` The next line contains the true sizes of each cluster.
@@ -129,13 +129,8 @@ The following information are output in the first output file.  Most entries are
 - `Best cluster sizes:` This line contains the sizes of the clusters in the best solution.  Notice, the clusters may not be ordered in the same way as the true clusters.
 - `Best solution originating seeds:` If random initialization was used, this line indicates the indices of the observations that yielded the best solution.
 - `Best solution cluster assignments:` The next line will contain the cluster assignments of all observations in the best-scoring solution.
-- `Best modes:`  The next $K$ lines specify the modes of the clusters found for the best-scoring solution.
-- The last line is a concise summary of the run.  It contains $13$ numbers.  An example line looks like:
-```
-1843 1.530000 0.051875 1868.530000 6.822074 0.947685 0.012844 0.959317 0.009732 0.058391 0.013943 0.349907 100
-```
-The numbers are:
-
+- `Best modes:`  The next K lines specify the modes of the clusters found for the best-scoring solution.
+- The last line is a concise summary of the run.  It contains 13 numbers, which are:
 	- The minimum value of the objective function obtained.
 	- The average number of initializations taken to converge.
 	- The standard deviation in the number of initializations taken to converge.
@@ -160,51 +155,49 @@ Here is a portion of the initialization output for the tutorial:
 3 2 873 114 487 369 1843 1843 1.000000 1.000000 1.000000 0.000000 0.017918
 ```
 The columns displayed are:
-
-	- The initialization number.
-	- The number of iterations to convergence.
-	- The cost of each cluster (K=4 in this case).
-	- The total cost.
-	- The best cost so far, starts at infinity.
-	- The adjusted RAND index of the current solution, if `--columns` argument provided.
-	- The best adjusted RAND index so far, if `--columns` argument provided.
-	- The normalized mutual information.
-	- The normalized variation of information.
-	- The total compute time used (in seconds). 
+- The initialization number.
+- The number of iterations to convergence.
+- The cost of each cluster (K=4 in this case).
+- The total cost.
+- The best cost so far, starts at infinity.
+- The adjusted RAND index of the current solution, if `--columns` argument provided.
+- The best adjusted RAND index so far, if `--columns` argument provided.
+- The normalized mutual information, if `--columns` argument provided.
+- The normalized variation of information, if `--columns` argument provided.
+- The total compute time used so far (in seconds). 
 
 ## Simulation
 
-When simulating data, there are up to two output files.
+When simulating data, there are up to two output files, specified via the `--file` and `--outfile` options.
 
 ### Simulated data
 The simulated data are output in the file given as argument to `--file`.
-The format is as described in (Input Files)[#input].
+The format is as described in [Input Files](#input).
 In addition, the first column contains the true cluster membership of the observation on that line.
 
 ### Simulation information
 If requested via command-line argument `--outfile`, information about the simulation may also be output.
 The data in this file are key/value pairs.
 The meaning of each entry is provided below:
-
-	- `Number of observations:` Integer specifying the number of observations simulated.
-	- `Number of coordinates:` Integer specifying the number of coordinates in each observation.
-	- `Number of categories:` Integer specifying the number of categories possible at each coordinate.  (Simulation data does not allow the number of categories to vary by coordinate.)
-	- `Number of true clusters:`  Integer specifying the number of clusters simulated.  In parentheses it reports how many generated observations.
-	- `CTMC times:` The times used in the continuous time Markov chain simulator.  The first number is the time separating the modes.  The second time is the time separating the observations from the modes.
-	- `CTMC probabilities:` The probability a coordinate is altered in the mode relative to the ancestor, and the probability a coordinate is altered from the mode in an observation.
-	- `Mixing proportions:` The probability of each of K clusters provided on the next line.
-	- `Simulated modes:`  The true modes provided on the next K lines.
-	- `Mode pairwise distances:` The Hamming distance between each pair of true modes on the next K lines in upper triangle format.
-	- `Simulated cluster assignments:` The true cluster assignments are on the next line.
-	- `Simulated cluster sizes:` The size of the simulated clusters on the next line.
-	- `Data written to file:` The name of the file where the simulated data were written.
+- `Number of observations:` Integer specifying the number of observations simulated.
+- `Number of coordinates:` Integer specifying the number of coordinates in each observation.
+- `Number of categories:` Integer specifying the number of categories possible at each coordinate.  (Simulation data does not allow the number of categories to vary by coordinate.)
+- `Number of true clusters:`  Integer specifying the number of clusters simulated.  In parentheses it reports how many generated observations.
+- `CTMC times:` The times used in the continuous time Markov chain simulator.  The first number is the time separating the modes.  The second time is the time separating the observations from the modes.
+- `CTMC probabilities:` The probability a coordinate is altered in the mode relative to the ancestor, and the probability a coordinate is altered from the mode in an observation.
+- `Mixing proportions:` The probability of each of K clusters provided on the next line.
+- `Simulated modes:`  The true modes provided on the next K lines.
+- `Mode pairwise distances:` The Hamming distance between each pair of true modes on the next K lines in upper triangle format.
+- `Simulated cluster assignments:` The true cluster assignments are on the next line.
+- `Simulated cluster sizes:` The size of the simulated clusters on the next line.
+- `Data written to file:` The name of the file where the simulated data were written.
 
 
 # Troubleshooting <a name = "troubleshooting" />
 
 1. Please note that if you use ```run_kmodes``` to simulate data (```--simulate``` option), then it will output the true cluster identities in the first column.  It is very important that, when doing clustering, you use the ```--column 0``` option to inform ```run_kmodes``` so that it ***does not*** use this column of data for clustering.  Or remove the column before analysis.
 
-2. ```run_kmodes``` is not very flexible about the data it can process.  It assumes that every category is a non-negative integer smaller than 256.  You can raise the limit by editing the ```constants.h``` file, redefining ```data_t```, ```KMODES_PRIu_data_t```, and ```KMODES_SCNu_data_t```, replacing the number 8 with 16 (upper limit: 65535) or 32 (upper limit: 4294967295).
+2. ```run_kmodes``` is not very flexible about the data it can process.  It assumes that every category is a non-negative integer.
 
 3. If the categories in your dataset are not contiguous numbers, ```run_kmodes``` will warn you.  You can ignore the warning, or use the second arguments to option ```--file``` to modify the data file so the warning goes away.
 
