@@ -49,12 +49,12 @@ kmodes has been tested under Linux and MacOS.
 
 # Tutorial <a name = "tutorial" />
 
-For this mini-tutorial, we assume you have compiled the executable ```run_kmodes``` and it is in your current directory.
-All the files created in this tutorial are in the `demo` directory.
+For this mini-tutorial, we assume you have compiled the executable ```run_kmodes``` and have copied it into the demo directory, where you will carry out this tutorial.
+All the files created in this tutorial are in the `demo` directory.  Beware that you will overwrite them if you repeat these commands.
 
 1. Simulate data consisting of 100 observations with 50 coordinates in 4 categories and relative abundances of 0.1, 0.2, 0.25, and 0.45.
 Parameters 8.1 and 2.0 determine the amount of 'time' separating the modes and the observations from their modes.
-The simulated data are written to file `sim.dat` and the simulation settings to `sim.out`, with **the true cluster membership of each observation in the first column**.
+The simulated data are written to file `sim.dat`, **with the true cluster membership of each observation in the first column**, and the simulation settings to `sim.out`.
 We set the random seed to 123 and do not actually run k-modes (`-n 0` means 0 initializations).
 
 ```
@@ -67,33 +67,54 @@ We inform ```run_kmodes``` that the true cluster memberships are given in the fi
 
 ```
 ./run_kmodes -f sim.dat -o sim.hw.out -k 4 -w -n 100 -i rnd -r 321 -c 0
-tail -n 1 sim.hw.out	# vital statistics
 ```
 
 3. Repeat using Huang's (1997) algorithm, which is the default.  Notice, we are using the exact same random initializations, since we set an identical seed.
 
 ```
 ./run_kmodes -f sim.dat -o sim.h97.out -k 4 -n 100 -i rnd -r 321 -c 0
-tail -n 1 sim.h97.out	# vital statistics
 ```
 
-Comparison of the last line of output on my system shows:
+4. Compare of the last line of output on my system shows:
 ```
-==> ../demo/sim.hw.out <==
-1843 1.530000 0.051875 1868.530000 6.822074 0.947685 0.012844 0.959317 0.009732 0.058391 0.013943 0.365033 100
-==> ../demo/sim.h97.out <==
+tail -n 1 sim.h*.out
+==> sim.h97.out <==
 1843 3.290000 0.093054 1887.360000 8.116644 0.916890 0.014290 0.929269 0.011482 0.102328 0.016519 0.410692 100
+==> sim.hw.out <==
+1843 1.530000 0.051875 1868.530000 6.822074 0.947685 0.012844 0.959317 0.009732 0.058391 0.013943 0.365033 100
 
 ```
 These numbers are the minimum value of objective function, the average and standard deviation of the number of iterations, the average and standard deviation of the objective function, the average and standard deviation of the adjusted RAND index, the average and standard deviation of the normalized mutual information, the average and standard deviation of the normalized variation of information, the total time taken, and the number of initializations.
 We can see that Huang's algorithm took more time and obtained substantially higher average values of the objective function, but both methods found the true solution handily.
 
-4. See if we can do any better by providing the true partition (```-p```).  (Actually, most initialiations already find the true clusters.)
+5. See if we can do any better by providing the true partition (```-p```).  (Actually, most initialiations already find the true clusters.)
 
 ```
 tail -n 4 sim.out | head -n 1 > sim.part	# extract true partition from simulation output file
 ./run_kmodes -f sim.dat -o sim.h97.part.out -p sim.part -k 4 -c 0
 ```
+
+6. Analyze a real dataset.  We run the Hartigan and Wong algorithm for 1000 initializations for each all K in 1 to 7.
+Then, we use `run_kmodes` to select K via 9 different K-selection methods.
+This last command uses an R script provided in the `scripts` directory.
+If that script does not work for you, the effective number of independent coordinates is 15.47, which you can provide directly as the argument to option `-p`.
+Though not shown here, you should probably increase the number of initializations as you increase K since optimization is harder for larger K.
+Also, the Daneel method is not yet implemented in this code (work-in-progress).
+```
+./run_kmodes -f soybean-small.int.data -o soybean-small.K1.out soybean-small.K1.ini -k 1 -w -n 1000 -i rnd -r 321 -c 0
+./run_kmodes -f soybean-small.int.data -o soybean-small.K2.out soybean-small.K2.ini -k 2 -w -n 1000 -i rnd -r 321 -c 0
+./run_kmodes -f soybean-small.int.data -o soybean-small.K3.out soybean-small.K3.ini -k 3 -w -n 1000 -i rnd -r 321 -c 0
+./run_kmodes -f soybean-small.int.data -o soybean-small.K4.out soybean-small.K4.ini -k 4 -w -n 1000 -i rnd -r 321 -c 0
+./run_kmodes -f soybean-small.int.data -o soybean-small.K5.out soybean-small.K5.ini -k 5 -w -n 1000 -i rnd -r 321 -c 0
+./run_kmodes -f soybean-small.int.data -o soybean-small.K6.out soybean-small.K6.ini -k 6 -w -n 1000 -i rnd -r 321 -c 0
+./run_kmodes -f soybean-small.int.data -o soybean-small.K7.out soybean-small.K7.ini -k 7 -w -n 1000 -i rnd -r 321 -c 0
+./run_kmodes -f soybean-small.int.data --column 0 -k1 soybean-small.K1.out -k2 soybean-small.K2.out -k3 soybean-small.K3.out -k4 soybean-small.K4.out -k5 soybean-small.K5.out -k6 soybean-small.K6.out -k7 soybean-small.K7.out -p `../scripts/eff_p.Rsrc soybean-small.int.data 0.999`
+```
+The output is not particularly friendly.  Just pay attention to the penultimate line:
+```
+soybean-small.int.data     Maxima: J =  7, rJ =  7, kJ =  7, J2 =  3, rJ2 =  1, kJ2 =  3, KL =  3, rKL =  3, kKL =  3
+```
+where the K selections made for each method is given.  The reported true K for this dataset is 4.
 
 
 # Preparing input <a name="input" />
@@ -102,6 +123,20 @@ The input is a simple text file with one observation per line, no header or comm
 The coordinate values should be non-negative integers.
 ```run_kmodes``` will issue a warning if they are not contiguous, but you can safely ignore this warning.
 If available, the first column can contain the true cluster memberships, which should be provided as integers between 0 and K-1, inclusive and no values unused.
+The first 10 lines of the data file created in simulation in the [tutorial](#tutorial) are shown below.
+The first column indicates that the first two observations are both in the third cluster.
+```
+2 2 2 2 0 0 2 1 1 1 1 1 1 1 2 0 2 2 3 1 2 1 0 2 3 3 2 0 2 0 2 2 2 1 1 1 3 3 1 2 1 3 3 2 0 0 2 1 2 1 3
+2 1 0 3 3 3 3 1 1 3 2 1 0 1 2 0 3 3 0 0 2 0 0 3 2 2 2 0 3 2 2 0 1 1 2 0 2 3 0 3 1 0 3 2 0 0 1 1 1 1 3
+3 1 3 1 1 0 2 0 3 3 3 0 3 1 0 3 0 3 1 2 3 3 2 2 3 0 2 0 1 2 2 1 3 0 1 2 0 1 1 0 3 2 3 2 3 2 3 0 1 1 0
+1 1 0 1 3 1 3 3 2 3 2 3 1 2 2 3 0 3 0 0 2 3 0 1 3 2 3 1 2 0 3 2 2 2 3 0 2 3 2 0 3 2 0 3 2 3 2 0 3 3 1
+2 3 1 3 2 0 3 1 2 3 1 1 2 0 1 3 1 1 1 0 2 1 0 3 3 2 2 1 2 0 2 0 2 0 2 2 3 1 0 3 1 0 1 0 1 3 0 0 0 1 3
+3 0 3 1 1 2 2 0 2 1 3 1 0 2 3 2 2 3 1 2 2 1 2 3 3 0 2 3 1 2 2 2 3 0 2 3 1 1 3 1 1 1 3 1 2 2 3 1 1 1 0
+2 1 0 0 2 0 3 1 1 3 1 1 2 3 2 3 0 3 2 1 2 1 0 3 3 0 2 0 2 0 3 3 3 3 0 1 3 3 0 3 0 3 0 0 2 0 2 3 3 1 3
+0 3 1 3 1 1 0 3 0 2 1 0 1 2 0 2 0 1 0 2 2 0 3 1 2 3 3 0 2 3 1 3 0 3 2 2 3 0 1 3 2 1 2 1 2 3 1 3 1 2 1
+2 1 0 3 1 0 1 2 1 3 3 1 0 2 1 0 1 1 2 0 1 1 0 3 3 3 3 0 2 0 2 3 3 1 2 0 0 3 2 3 1 2 3 1 1 0 2 1 3 3 3
+2 1 0 1 0 0 1 1 2 3 1 2 2 0 2 0 0 0 1 1 2 3 1 3 3 2 2 2 1 0 2 1 3 1 3 0 3 1 0 3 1 2 1 0 2 0 3 3 1 1 3
+```
 
 
 # Output Files <a name = "output" />
@@ -162,8 +197,8 @@ The columns displayed are:
 - The best cost so far, starts at infinity.
 - The adjusted RAND index of the current solution, if `--columns` argument provided.
 - The best adjusted RAND index so far, if `--columns` argument provided.
-- The normalized mutual information, if `--columns` argument provided.
-- The normalized variation of information, if `--columns` argument provided.
+- The normalized mutual information of the current solution, if `--columns` argument provided.
+- The normalized variation of information of the current solution, if `--columns` argument provided.
 - The total compute time used so far (in seconds). 
 
 ## Simulation
@@ -183,13 +218,13 @@ The meaning of each entry is provided below:
 - `Number of coordinates:` Integer specifying the number of coordinates in each observation.
 - `Number of categories:` Integer specifying the number of categories possible at each coordinate.  (Simulation data does not allow the number of categories to vary by coordinate.)
 - `Number of true clusters:`  Integer specifying the number of clusters simulated.  In parentheses it reports how many generated observations.
-- `CTMC times:` The times used in the continuous time Markov chain simulator.  The first number is the time separating the modes.  The second time is the time separating the observations from the modes.
-- `CTMC probabilities:` The probability a coordinate is altered in the mode relative to the ancestor, and the probability a coordinate is altered from the mode in an observation.
+- `CTMC times:` The times used in the continuous time Markov chain simulator.  The first number is the time separating the modes.  The second time is the time separating the observations from the modes.  The more time separating the modes from the ancestor, the easier the clustering.  The more time separating the observations from their modes, the harder the clustering.
+- `CTMC probabilities:` The probability a coordinate is altered in the mode relative to the ancestor, and the probability a coordinate is altered in an observation relative to its mode.
 - `Mixing proportions:` The probability of each of K clusters provided on the next line.
 - `Simulated modes:`  The true modes provided on the next K lines.
-- `Mode pairwise distances:` The Hamming distance between each pair of true modes on the next K lines in upper triangle format.
+- `Mode pairwise distances:` The Hamming distance between each pair of true modes on the next K-1 lines in upper triangle format.
 - `Simulated cluster assignments:` The true cluster assignments are on the next line.
-- `Simulated cluster sizes:` The size of the simulated clusters on the next line.
+- `Simulated cluster sizes:` The size of the simulated clusters are on the next line.
 - `Data written to file:` The name of the file where the simulated data were written.
 
 
@@ -203,7 +238,160 @@ The meaning of each entry is provided below:
 
 # Command-Line Options <a name = "options" />
 
-Please run `./run_kmodes --help` for detailed information about all available options.
+Please run `./run_kmodes --help` for detailed information about all available options.  That help is repeated below.
+```
+RUN_KMODES
+
+NAME
+	run_kmodes - cluster observations with categorical coordinates
+
+SYNOPSIS
+	run_kmodes [-r SEED -n N -h97|-l|-w -i INI -o OFILE] -k K -f FILE [OPTIONS]
+
+DESCRIPTION
+	run_kmodes clusters observations found in IFILE into K clusters.  It
+	randomly initialize N times using initialization method INI after
+	setting random number seed SEED, and outputs the results in OFILE.
+
+	Data in FILE should be one observation per line, positive integers for
+	each coordinate, separated by spaces.  There should be no header or
+	comments.  run_kmodes is compiled by default to read coordinate values
+	0-256.  Redefine data_t-related constants in constants.h to expand.
+
+	Three algorithms are implemented: Hartigan and Wong's (-w), Huang's
+	(-h97), and Lloyd's (-l).
+
+	Several initialization methods are implemented: see the details below.
+
+	You are required to specify the number of clusters K, but run_kmodes
+	can help you select K if you run and store the results for multiple K
+	and then use options -kK ... multiple times to specify the output
+	files.
+
+	You may simulate data (see -s).  Simulated data written to FILE (-f).
+	Simulation conditions written to OFILE (-o) if specified.
+
+OPTIONS
+   Data input:  These options provide information about the input data.
+
+	-f,--file FILE [FILE2]
+		Data are in FILE (with --simulate, simulated data are written
+		to FILE). The data will be optionally rewritten to FILE2, after
+		possible modification, such as reindexing categories.  Repeat
+		filename twice to overwrite the input file.
+	-c, --column N
+		Set the column N (0-based) containing the true cluster
+		assignments (Default: not set).
+	-1
+		Subtract 1 from the observation categories (Default: no).
+
+  Data output:  These options control where the output goes.
+
+	-o, --outfile OFILE [OFILE2]
+		Set the output filename.  If second argument given, split into
+		information into first file, run data into second file
+		(Default: none).
+	-m, --mode MFILE [MFILE2]
+		File with true modes.  Write modified modes to MFILE2 if
+		specified.
+
+  Run settings: Specify how k-modes will run.
+
+	-k, --K K
+		Set the desired number of clusters K.
+	-n N
+		Set number of initializations [Default: 1].
+	-w, --wong
+		Run Hartigan and Wong algorithm (Default: no).
+		Can combine with -u.
+	-qt, --quick-transfer
+		Turn off Hartigan & Wong quick-transfer stage.
+	-l, --lloyds
+		Run Lloyd's algorithm (Default: no).
+		Cannot combine with -u.
+	--h97
+		Run Huang's algorithm (Default: yes).
+		Combine with -u to replicate klaR.
+	--hartigan
+		Use Hartigan updates with Huang's k-modes (Default: no).
+		No effect without --h97.
+	--shuffle
+		Shuffle the observation order on each initialization (Default: no).
+	-r, --random SEED
+		Set random number seed (Default: 0).
+	--continue
+		Continue previous run (Default: no).
+	-m, --min OPTIMUM
+		Record number of initializations and time to this target optimum.
+	-q, quiet
+		Silence extra output to stderr (Default: yes).
+	-h, --help
+		This help.
+
+  Initialization: Specify how k-modes will be initialized.
+
+	-i, --initialization
+		Random initialization.  Repeat as needed with following arguments.
+	   METHOD
+		Set initialization method, one of:
+		  rnd       K random observations selected as seeds
+		  h97       Huang's initialization method
+		  h97rnd    Huang's initialization method randomized
+		  hd17      ...
+		  clb09     Cao et al.'s initialization method
+		  clb09rnd  Cao et al.'s initialization method randomized
+		  av07      k-modes++
+		  av07grd   greedy k-modes++
+		  rndp      given partition via --column, select one
+		            observation from each partition
+		  rnds      given seed observations, randomly select K;
+		            if K seeds provided, this is deterministic
+	   INT1 ... INTK
+		Set the (0-based) indices of the seeds.
+	   IFILE
+		Provide file with possible seeds.
+		If more than K seeds in IFILE, then method is 'rnds'.
+		If K seeds in IFILE, then initialize with these seeds.
+	-p, --partition PFILE
+		Partition file for deterministic initialization.  Modes of given
+		partition will be initial modes.  Partition file contains space-
+		separated, 0-based indices of cluster assignments for each
+		observation in the order they appear in the input FILE.  This
+		option overrides -i.
+	-t, --time SECONDS
+		Number of seconds to run initializations (Default: 0.00).
+	-u, --update
+		Use mode updates during first iteration.
+		Combine with -m to replicate klaR.
+
+  K selection: Perform K-selection based on previous runs.
+
+	-kK FILE1 FILE2 ...
+		The names of output files from various runs/methods for K=K,
+		limited by POSIX ARG_MAX (excuse unconventional option).
+	-p FLOAT
+		Effective number of independent coordinates.
+
+  Simulation: Specify how to simulate data.  Simulation K inferred from -pi.
+
+	-pi, --pi
+		Use one of following formats:
+	   PROPORTION1 ... PROPORTIONK
+		The cluster proportions in simulation.
+	   dir FLOAT1 ... FLOATK
+		The alpha for Dirichlet prior on pi.  (Type "dir" literally.)
+	-s N P C T1 T2
+		Simulation size (observations N by coordinates P by categories C)
+		and times:
+		  T1 is the time separating the "modes".
+		  T2 is the time separating the observations from their "modes".
+
+Note to self: Use OFILE2 (-o) and MFILE2 (-m) to convert from fqmorph output
+format to run_kmodes format, where categories use contiguous indices 0, 1, ....
+Note to self: hidden options --run
+
+RUN_KMODES
+```
 
 
 # How to Cite <a name = "citing" />
@@ -223,6 +411,9 @@ Another randomized version hd17 was suggested by the author of [Python k-modes](
 - The initialization method k-means++ was published in [Arthur and Vassilvitskii (2007)](http://dl.acm.org/citation.cfm?id=1283383.1283494).
 A greedy version of k-means++ was proposed by the same authors.
 The initialization method k-modes++ and its greedy version were inspired by k-means++, and they were proposed by us.
+- The adjusted RAND index was published in [Hubert and Arabie (1985)](http://dx.doi.org/10.1007/BF01908075).
+- Normalized mutual information was published in [Kvalseth (1987)](https://ieeexplore.ieee.org/document/4309069).
+- Normalized variation of information was published in [Vinh _et al._ (2010)](https://dl.acm.org/doi/10.5555/1756006.1953024).
 - MacQueen's and Lloyd's algorithms for k-modes are available in [R package klaR](https://cran.r-project.org/web/packages/klaR/index.html).
 - MacQueen's algorithm for k-modes is available in [Python](https://pypi.org/project/kmodes/).
 

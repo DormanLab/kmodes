@@ -455,7 +455,7 @@ int restore_state(data *dat, options *opt)
 					dat->n_coordinates))
 					return mmessage(ERROR_MSG,
 						FILE_FORMAT_ERROR,
-						opt->soln_file);
+						"%s\n", opt->soln_file);
 				debug_msg(DEBUG_I <= fxn_debug, fxn_debug,
 					"Best modes, read mode %u:\n", k);
 				debug_call(DEBUG_I <= fxn_debug, fxn_debug,
@@ -1350,11 +1350,15 @@ int process_arg_p(int argc, char const **argv, int *i, int j, options *opt)
 				fprint_doubles(stderr, opt->sim_pi,
 							opt->sim_K, 2, 1));
 		}
-	} else if (access(argv[*i + 1], F_OK) == -1)
+	} else if (access(argv[*i + 1], F_OK) == -1) {
 		opt->n_effective_coordinates = read_cmdline_double(argc, argv,
 			++(*i), (void *)opt);
-	else
+		debug_msg(MINIMAL <= fxn_debug, opt->quiet, "Read %f effective "
+					"coordinates from the command line.\n",
+						opt->n_effective_coordinates);
+	} else {
 		opt->pfile = argv[++(*i)];
+	}
 
 	return NO_ERROR;
 } /* process_arg_p */
@@ -2703,11 +2707,11 @@ int estimate_k(data *dat, options *opt)
 
 		for (unsigned int i = 0; i < dat->n_observations; ++i) {
 			unsigned int j = dat->best_cluster_id[ridx[i]];
-			debug_msg(DEBUG_I <= fxn_debug, fxn_debug, "Observation "
-						"%u assigned to %u\n", i, j);
 			obsn_hd[i] = hd_fast(dat->dmat[i], dat->best_modes[j],
 				dat->n_coordinates);
-			//fprintf(stderr, "Observation %u in cluster %u/%u, distance %.0f\n", i, j, opt->K, obsn_hd[i]);
+			debug_msg(DEBUG_II <= fxn_debug, fxn_debug,
+				"Observation %u assigned to %u at distance "
+						"%.0f\n", i, j, obsn_hd[i]);
 
 			/* allocate observations equally to equidistant modes */
 			obsn_cnt[i][j] = 1;
@@ -2732,6 +2736,8 @@ int estimate_k(data *dat, options *opt)
 		}
 
 		compute_costs(dat->criterion, var, asize, dat->n_observations, opt->K, &cost, &rrcost, &krcost, &sd, &rsd, &ksd);
+		debug_msg(DEBUG_I <= fxn_debug, fxn_debug, "Costs are: %f %f %f\n", cost, rrcost, krcost);
+
 		if (!l && opt->K > 1) {
 			pcost = cost;
 			prrcost = rrcost;
@@ -2741,6 +2747,7 @@ int estimate_k(data *dat, options *opt)
 
 		/* we can compute jump statistics: these are the observed */
 		compute_jump_stats(cost, rrcost, krcost, pcost, prrcost, pkrcost, &jump, &rjump, &kjump, Y, !l);
+		debug_msg(DEBUG_I <= fxn_debug, fxn_debug, "Statistics are: %f %f %f\n", jump, rjump, kjump);
 
 		Ck = pow(opt->K - 1, 1/Y) * pcost - pow(opt->K, 1/Y) * cost;
 		rCk = pow(opt->K - 1, 1/Y) * prrcost - pow(opt->K, 1/Y) * rrcost;
@@ -2752,11 +2759,14 @@ int estimate_k(data *dat, options *opt)
 		} else
 			KL = rKL = kKL = 0.;
 
+		debug_msg(DEBUG_I <= fxn_debug, fxn_debug,
+				"Bootstrap %u times.\n", opt->n_bootstrap);
+
 		/* bootstrap hd */
 		double jmu = 0, rjmu = 0, kjmu = 0;
 		double jvar = 0, rjvar = 0, kjvar = 0;
 		for (unsigned i = 0; i < opt->n_bootstrap; ++i) {
-			debug_msg(DEBUG_I <= fxn_debug, fxn_debug,
+			debug_msg(DEBUG_II <= fxn_debug, fxn_debug,
 							"BOOTSTRAP %u\n", i);
 			double cost_bs, rrcost_bs, krcost_bs;
 			double pcost_bs = 0., prrcost_bs = 0., pkrcost_bs = 0.;
@@ -2996,6 +3006,7 @@ void compute_jump_stats(double cost, double rrcost, double krcost,
 	double *jump, double *rjump, double *kjump, double Y, int reset)
 {
 	static double factor, rfactor, kfactor;
+
 	*jump = *rjump = *kjump = 0;
 	if (reset) {
 		factor = cost/2.;

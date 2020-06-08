@@ -1,0 +1,28 @@
+Seed: 321
+Algorithm: Hartigan Wong 1979
+Initialization: random seeds.
+Run for 1000 initializations
+Number of clusters to estimate: 7
+Initialization output file: soybean-small.K7.ini
+Number of true clusters: 4
+True cluster assignments:
+ 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+True cluster sizes:
+ 10 10 10 17
+Best optimized criterion: 145
+ 15 9 38 13 28 30 12
+Maximum AR: 0.917984
+Best cluster sizes: 5 5 10 5 9 8 5
+Best solution originating seeds: 24 27 29 11 38 40 17
+Best solution cluster assignments:
+ 2 2 2 2 2 2 2 2 2 2 6 3 6 3 6 3 3 6 3 6 1 0 0 1 1 0 0 1 0 1 4 5 4 5 4 4 5 4 4 4 5 5 4 5 4 5 5
+
+Best modes:
+ 2 1 2 0 0 3 1 1 0 2 0 0 0 0 0 0 0 0 0 0 1 1 0 1 1 0 0 1 0 0 0 0 0 0 0
+ 0 1 2 0 0 0 1 0 1 1 0 0 0 0 0 0 0 0 0 0 1 1 0 1 0 0 0 1 0 0 0 0 0 0 0
+ 3 0 2 1 0 1 0 0 0 2 0 1 0 0 0 0 0 0 0 0 3 1 1 1 0 0 0 0 0 0 0 0 0 0 0
+ 4 0 0 1 0 1 3 0 1 0 0 1 0 0 0 0 0 0 0 0 0 3 0 0 0 1 1 0 0 0 0 0 0 0 0
+ 1 1 2 0 0 3 1 1 1 2 0 1 0 0 0 0 0 0 0 0 2 2 0 0 0 0 0 1 0 0 0 0 0 0 1
+ 0 1 2 1 1 1 1 0 0 0 0 1 0 0 0 0 0 0 0 0 1 2 0 1 0 0 0 1 0 0 0 0 0 0 1
+ 5 0 0 2 1 0 2 0 0 2 0 1 0 0 0 0 0 0 0 0 0 3 0 0 0 1 1 0 0 0 0 0 0 0 0
+145 1.394000 0.017285 156.078000 0.326261 0.673238 0.002425 0.715020 0.001215 0.298996 0.001746 1.356770 1000

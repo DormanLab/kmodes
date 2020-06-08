@@ -1,0 +1,24 @@
+#!/usr/bin/Rscript
+#
+# Purpose: Compute the effective number of independent features via the design matrix as described in JMLR submission.
+#
+# Output: There is no saved output.
+
+args <- commandArgs(trailingOnly = TRUE)
+data.file <- args[1]
+prob <- args[2]
+ceil <- F
+report.info.p <- F
+if (length(args) > 2)
+	ceil <- args[3]
+
+mat <- read.table(data.file, header=F, colClasses="factor")
+if (report.info.p)
+	cat("Informative coordinates (", ncol(mat) - 1, "): ", ncol(mat) - 1 - sum(as.vector(apply(mat, 2, function(x) (length(unique(x))))) == 1), "(", as.vector(apply(mat, 2, function(x) (length(unique(x))))), "; sum =", sum(as.vector(apply(mat, 2, function(x) (length(unique(x))))) - 1), ")\n")
+mat <- mat[, -c(1, which(as.vector(apply(mat, 2, function(x) (length(unique(x))))) == 1))]
+mat.m <- model.matrix(~ ., mat)
+mat.eig <- eigen(t(mat.m) %*% mat.m, only.value = T)
+p <- min(which(cumsum(mat.eig$values)/sum(mat.eig$values) >= prob)) / ncol(mat.m) * ncol(mat)
+if (ceil)
+	p <- ceiling(p)
+cat(p, "\n")

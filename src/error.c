@@ -7,7 +7,7 @@
 
 #include "error.h"
 
-int global_debug_level = SILENT;	/* allow warnings */
+int global_debug_level = MINIMAL;	/* allow some informational */
 
 int vmessage(FILE *fp, const char *file_name, const char *fxn_name, int line,
 	int msg_type, int msg_id, const char *msg, va_list vl);
