@@ -1,0 +1,22 @@
+Number of observations: 100
+Number of coordinates: 50
+Number of categories: 4
+Number of true clusters: 4 (4 realized)
+CTMC times: 8.100000 2.000000
+CTMC probabilities: 0.300404 0.635063
+Mixing proportions:
+ 0.100000 0.200000 0.450000 0.250000
+Simulated modes:
+ 3 1 1 3 1 0 3 1 0 1 0 1 2 1 0 1 1 0 0 0 3 0 1 0 3 3 0 0 3 3 3 0 3 2 2 3 0 1 3 2 0 0 1 3 3 1 3 1 2 3
+ 0 0 1 3 1 3 3 2 3 2 1 1 3 2 3 0 3 0 0 2 0 1 3 3 2 0 1 2 2 3 2 1 0 1 0 2 1 2 0 3 2 1 0 2 3 0 0 1 3 1
+ 1 0 3 2 0 3 1 1 3 1 1 2 1 2 0 1 1 2 0 2 1 0 3 3 2 2 0 2 0 2 0 3 1 2 1 3 3 0 3 1 0 0 0 0 0 3 3 3 1 3
+ 1 3 1 1 0 0 0 2 3 3 0 0 0 3 3 2 3 1 0 3 3 2 3 2 0 2 2 1 2 2 2 3 0 1 3 1 1 1 0 0 1 3 1 3 2 3 0 1 2 0
+Mode pairwise distances:
+ 40 35 40
+    38 35
+       41
+Simulated cluster assignments:
+ 2 2 3 1 2 3 2 0 2 2 3 3 1 2 3 2 2 2 1 3 3 2 1 2 3 2 1 2 3 2 0 1 1 1 3 3 3 1 1 2 3 3 2 1 2 2 2 0 1 2 2 1 2 0 1 2 2 3 1 2 2 3 3 3 2 1 2 3 2 2 1 1 2 2 2 0 2 2 2 3 2 2 2 3 1 2 1 1 3 2 3 2 3 2 2 0 3 0 2 2
+Simulated cluster sizes:
+  7 21 47 25
+Data written to file: sim.dat
