@@ -977,6 +977,12 @@ reverse_select_double_with_index(double *vec, size_t* idx, size_t n, size_t k)
 	with_index_quickselect((void *)vec, idx, reverse_compare_double_elts, 0, n-1, k);
 } /* select_double_with_index */
 
+void
+select_uint_with_index(unsigned int *vec, size_t *idx, size_t n, size_t k)
+{
+	with_index_quickselect((void *)vec, idx, compare_uint_elts, 0, n-1, k);
+} /* select_uint_with_index */
+
 /**
  * Quick sort by index for arrays of simple data types.
  * The permuted index it returns would put the array in first argument vec into
@@ -1240,6 +1246,23 @@ int compare_double_elts(const void *v, size_t *index, size_t left, size_t right,
 	const double *dv = (double *)v;
 	RETURN_CMP(dv[index[left]], dv[index[right]]);
 }
+
+/**
+ * A #CompareVectorElts-compliant function for comparing two elements in an
+ * unsigned int array.
+ * @param v vector of unsigned ints
+ * @param index index array
+ * @param left index of first element
+ * @param right index of second element
+ * @return comparison value, see #RETURN_CMP.
+ */
+int compare_uint_elts(const void *v, size_t *index, size_t left, size_t right,
+	va_list vl)
+{
+	UNUSED(vl);
+	const unsigned int *uv = (unsigned int *)v;
+	RETURN_CMP(uv[index[left]], uv[index[right]]);
+} /* compare_uint_elts */
 
 /**
  * A #CompareVectorElts-compliant function for comparing two elements in a unsigned long array.

@@ -1,8 +1,8 @@
-
 k-modes
 =======
 
 This software implements algorithms from [Huang (1997)](http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.6.4718), [Chaturvedi _et al._ (2001)](https://doi.org/10.1007/s00357-001-0004-3), and Dorman and Maitra (2020) to minimize the k-modes objective function.
+It also implements several initialization methods and K-selection methods.
 
 # Table of Contents
 1. [Prerequisites](#prerequisites)
@@ -85,36 +85,36 @@ tail -n 1 sim.h*.out
 
 ```
 These numbers are the minimum value of objective function, the average and standard deviation of the number of iterations, the average and standard deviation of the objective function, the average and standard deviation of the adjusted RAND index, the average and standard deviation of the normalized mutual information, the average and standard deviation of the normalized variation of information, the total time taken, and the number of initializations.
-We can see that Huang's algorithm took more time and obtained substantially higher average values of the objective function, but both methods found the true solution handily.
+We can see that Huang's algorithm took more time and obtained substantially higher average values of the objective function, but both methods found the true solution handily (see `maximum ARI` in the output file or watch the terminal output as it scrolls past).
 
-5. See if we can do any better by providing the true partition (```-p```).  (Actually, most initialiations already find the true clusters.)
+5. See if we can do any better by providing the true partition (```-p```).  (Actually, most initializations already find the true clusters.)
 
 ```
 tail -n 4 sim.out | head -n 1 > sim.part	# extract true partition from simulation output file
 ./run_kmodes -f sim.dat -o sim.h97.part.out -p sim.part -k 4 -c 0
 ```
 
-6. Analyze a real dataset.  We run the Hartigan and Wong algorithm for 1000 initializations for each all K in 1 to 7.
+6. Analyze a real dataset.  We run the Hartigan and Wong algorithm for 1000 initializations for each all K in 1 to 8.
 Then, we use `run_kmodes` to select K via 9 different K-selection methods.
 This last command uses an R script provided in the `scripts` directory.
 If that script does not work for you, the effective number of independent coordinates is 15.47, which you can provide directly as the argument to option `-p`.
 Though not shown here, you should probably increase the number of initializations as you increase K since optimization is harder for larger K.
-Also, the Daneel method is not yet implemented in this code (work-in-progress).
 ```
-./run_kmodes -f soybean-small.int.data -o soybean-small.K1.out soybean-small.K1.ini -k 1 -w -n 1000 -i rnd -r 321 -c 0
-./run_kmodes -f soybean-small.int.data -o soybean-small.K2.out soybean-small.K2.ini -k 2 -w -n 1000 -i rnd -r 321 -c 0
-./run_kmodes -f soybean-small.int.data -o soybean-small.K3.out soybean-small.K3.ini -k 3 -w -n 1000 -i rnd -r 321 -c 0
-./run_kmodes -f soybean-small.int.data -o soybean-small.K4.out soybean-small.K4.ini -k 4 -w -n 1000 -i rnd -r 321 -c 0
-./run_kmodes -f soybean-small.int.data -o soybean-small.K5.out soybean-small.K5.ini -k 5 -w -n 1000 -i rnd -r 321 -c 0
-./run_kmodes -f soybean-small.int.data -o soybean-small.K6.out soybean-small.K6.ini -k 6 -w -n 1000 -i rnd -r 321 -c 0
-./run_kmodes -f soybean-small.int.data -o soybean-small.K7.out soybean-small.K7.ini -k 7 -w -n 1000 -i rnd -r 321 -c 0
+for k in `seq 1 8`; do ./run_kmodes -f soybean-small.int.data -o soybean-small.K${k}.out soybean-small.K${k}.ini -k $k -w -n 1000 -i rnd -r $RANDOM -c 0; done
 ./run_kmodes -f soybean-small.int.data --column 0 -k1 soybean-small.K1.out -k2 soybean-small.K2.out -k3 soybean-small.K3.out -k4 soybean-small.K4.out -k5 soybean-small.K5.out -k6 soybean-small.K6.out -k7 soybean-small.K7.out -p `../scripts/eff_p.Rsrc soybean-small.int.data 0.999`
 ```
-The output is not particularly friendly.  Just pay attention to the penultimate line:
+The output is not particularly friendly.  Just pay attention to the penultimate line, which in our case (the results will now vary) looks like:
 ```
 soybean-small.int.data     Maxima: J =  7, rJ =  7, kJ =  7, J2 =  3, rJ2 =  1, kJ2 =  3, KL =  3, rKL =  3, kKL =  3
 ```
 where the K selections made for each method is given.  The reported true K for this dataset is 4.
+
+7. To use the Daneel method, you need the timing information for an initialization method without updates during the first iteration.
+```
+for k in `seq 1 8`; do ./run_kmodes -f soybean-small.int.data -o soybean-small.K${k}.nup.out soybean-small.K${k}.nup.ini -k $k -w -u -n 1000 -i rnd -r $RANDOM -c 0; done
+./run_kmodes -f soybean-small.int.data -k1 soybean-small.K1.ini -k2 soybean-small.K2.ini -k3 soybean-small.K3.ini -k4 soybean-small.K4.ini -k5 soybean-small.K5.ini -k6 soybean-small.K6.ini -k7 soybean-small.K7.ini -k8 soybean-small.K8.ini -n1 soybean-small.K1.nup.ini -n2 soybean-small.K2.nup.ini -n3 soybean-small.K3.nup.ini -n4 soybean-small.K4.nup.ini -n5 soybean-small.K5.nup.ini -n6 soybean-small.K6.nup.ini -n7 soybean-small.K7.nup.ini -n8 soybean-small.K8.nup.ini --column 0
+```
+It is not clear the method works well for these real data, but try the same operations on the simulation data to see how clear the signal can be.
 
 
 # Preparing input <a name="input" />
@@ -234,7 +234,7 @@ The meaning of each entry is provided below:
 
 2. ```run_kmodes``` is not very flexible about the data it can process.  It assumes that every category is a non-negative integer.
 
-3. If the categories in your dataset are not contiguous numbers, ```run_kmodes``` will warn you.  You can ignore the warning, or use the second arguments to option ```--file``` to modify the data file so the warning goes away.
+3. If the categories in your dataset are not contiguous numbers, ```run_kmodes``` will warn you.  You can ignore the warning, or use the second argument to option ```--file``` to modify the data file so the warning goes away.
 
 # Command-Line Options <a name = "options" />
 
@@ -253,10 +253,9 @@ DESCRIPTION
 	randomly initialize N times using initialization method INI after
 	setting random number seed SEED, and outputs the results in OFILE.
 
-	Data in FILE should be one observation per line, positive integers for
-	each coordinate, separated by spaces.  There should be no header or
-	comments.  run_kmodes is compiled by default to read coordinate values
-	0-256.  Redefine data_t-related constants in constants.h to expand.
+	Data in FILE should be one observation per line, non-negative integers
+	for each coordinate, separated by spaces.  There should be no header
+	or comments.
 
 	Three algorithms are implemented: Hartigan and Wong's (-w), Huang's
 	(-h97), and Lloyd's (-l).
@@ -334,18 +333,18 @@ OPTIONS
 		Random initialization.  Repeat as needed with following arguments.
 	   METHOD
 		Set initialization method, one of:
-		  rnd       K random observations selected as seeds
-		  h97       Huang's initialization method
-		  h97rnd    Huang's initialization method randomized
-		  hd17      ...
-		  clb09     Cao et al.'s initialization method
-		  clb09rnd  Cao et al.'s initialization method randomized
-		  av07      k-modes++
-		  av07grd   greedy k-modes++
+		  rnd       K random observations selected as seeds (Default: yes).
+		  h97       Huang's initialization method (Default: no).
+		  h97rnd    Huang's initialization method randomized (Default: no).
+		  hd17      Huang's initialization method interpreted by de Vos (Default: no).
+		  clb09     Cao et al.'s initialization method (Default: no).
+		  clb09rnd  Cao et al.'s initialization method randomized (Default: no).
+		  av07      k-modes++ (Default: no).
+		  av07grd   greedy k-modes++ (Default: no).
 		  rndp      given partition via --column, select one
-		            observation from each partition
+		            observation from each partition (Default: no).
 		  rnds      given seed observations, randomly select K;
-		            if K seeds provided, this is deterministic
+		            if K seeds provided, this is deterministic (Default: no).
 	   INT1 ... INTK
 		Set the (0-based) indices of the seeds.
 	   IFILE
@@ -362,13 +361,18 @@ OPTIONS
 		Number of seconds to run initializations (Default: 0.00).
 	-u, --update
 		Use mode updates during first iteration.
-		Combine with -m to replicate klaR.
+		Combine with -i rnd to replicate klaR (Default: no).
 
   K selection: Perform K-selection based on previous runs.
 
 	-kK FILE1 FILE2 ...
 		The names of output files from various runs/methods for K=K,
 		limited by POSIX ARG_MAX (excuse unconventional option).
+		For DM method, must also use -nK arguments for same values of K.
+	-nK FILE1 FILE2 ...
+		The names of output files from various runs/methods with NO updates
+		during the first iteration for K=K, limited by POSIX_ARG_MAX.
+		Must be used with -kK for same values of K.
 	-p FLOAT
 		Effective number of independent coordinates.
 

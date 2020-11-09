@@ -197,6 +197,7 @@ void order_size_t_quicksort_with_index(size_t *, size_t *, size_t);
 void reverse_order_uint_quicksort_with_index(unsigned int *, size_t *, size_t);
 void reverse_order_size_t_quicksort_with_index(size_t *, size_t *, size_t);
 void select_int_with_index(int *, size_t *, size_t, size_t);
+void select_uint_with_index(unsigned int *, size_t *, size_t, size_t);
 void select_double_with_index(double *, size_t *, size_t, size_t);
 void reverse_select_double_with_index(double *, size_t *, size_t, size_t);
 SIZE_T select_index(double *, SIZE_T, SIZE_T, SIZE_T);
@@ -204,6 +205,7 @@ SIZE_T select_index(double *, SIZE_T, SIZE_T, SIZE_T);
 
 /* some valid comparison functions */
 int compare_int_elts(const void *, size_t *, size_t, size_t, va_list);
+int compare_uint_elts(const void *v, size_t *index, size_t left, size_t right, va_list vl);
 int compare_size_t_elts(const void *, size_t *, size_t, size_t, va_list);
 int reverse_compare_size_t_elts(const void *, size_t *, size_t, size_t, va_list);
 int reverse_compare_uint_elts(const void *, size_t *, size_t, size_t, va_list);

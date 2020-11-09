@@ -32,6 +32,9 @@ struct _options {
 	unsigned int min_k;		/*<! minimum K */
 	unsigned int max_k;		/*<! maximum K */
 	unsigned int n_k;		/*<! number of K [min_k, max_k] */
+	unsigned int min_nk;		/*<! minimum K for no update ini */
+	unsigned int max_nk;		/*<! minimum K for no update ini */
+	unsigned int n_nk;		/*<! number of no up K */
 
 	/* run conditions */
 	kmodes_options *kopt;	/*<! kmodes run options passed to algorithms */
@@ -48,11 +51,14 @@ struct _options {
 	double target;		/*<! target minimum: best from prev. run */
 	int shuffle;		/*<! shuffle input order */
 	int continue_run;	/*<! continue previous run */
-	int estimate_k;		/*<! estimate k */
+	int select_k;		/*<! select k */
+	int dm_method;		/*<! select K by DM method */
 	double n_effective_coordinates;	/*<! effective no. indep. coordinates */
-	char const ***result_files;
-	unsigned int *n_result_files;
-	unsigned int n_bootstrap;
+	char const ***result_files;	/*<! names of output files per K */
+	unsigned int *n_result_files;	/*<! number of output files per K */
+	char const ***nup_ini_files;	/*<! ini file names w/o update per K */
+	unsigned int *n_nup_ini_files;	/*<! no. ini files w/o update per K */
+	unsigned int n_bootstrap;	/*<! no. of bootstraps in K-select */
 
 	/* initialization */
 	int init_method;	/*<! initialization method to use */

@@ -7,6 +7,14 @@ project(kmodes VERSION 1.0)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
+# compile with debugging symbols
+#SET(GCC_COVERAGE_COMPILE_FLAGS "-g")
+#add_definitions(${GCC_COVERAGE_COMPILE_FLAGS})
+
+# compile with optimization
+SET(GCC_COVERAGE_COMPILE_FLAGS "-O3")
+add_definitions(${GCC_COVERAGE_COMPILE_FLAGS})
+
 include(FindPackageHandleStandardArgs)
 
 aux_source_directory(. DIR_SRCS)

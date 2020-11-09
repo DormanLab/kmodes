@@ -1,0 +1,23 @@
+Seed: 13284
+Algorithm: Hartigan Wong 1979
+Initialization: random seeds.
+Run for 1000 initializations
+Number of clusters to estimate: 2
+Initialization output file: ../demo/soybean-small.K2.nup.ini
+Number of true clusters: 4
+True cluster assignments:
+ 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3
+True cluster sizes:
+ 10 10 10 17
+Best optimized criterion: 308
+ 210 98
+Maximum AR: 0.500693
+Best cluster sizes: 32 15
+Best solution originating seeds: 32 36
+Best solution cluster assignments:
+ 1 0 0 1 0 1 1 0 0 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+
+Best modes:
+ 0 1 2 0 0 3 1 1 1 2 0 1 0 0 0 0 0 0 0 0 1 2 0 1 0 0 0 1 0 0 0 0 0 0 1
+ 6 0 0 1 0 1 2 0 0 0 0 1 0 0 0 0 0 0 0 0 0 3 0 0 0 1 1 0 0 0 0 0 0 0 0
+308 0.000000 0.000000 311.302000 0.231648 0.347402 0.001778 0.371514 0.001090 0.657122 0.001245 0.197787 1000

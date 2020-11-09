@@ -24,6 +24,7 @@
 #include "cluster.h"
 #include "timing_mach.h"
 #include "matrix_exponential.h"
+#include "order.h"
 
 int make_options(options **opt);
 int parse_options(options *opt, int argc, const char **argv);
@@ -35,9 +36,12 @@ int finish_make_data(data *dat, options *opt);
 int simulate_data(data *dat, options *opt);
 int read_data(data *dat, options *opt);
 int initialize_outfiles(data *dat, options * opt, FILE **in_fps, FILE **in_fpi);
-int estimate_k(data *dat, options *opt);
+int select_k(data *dat, options *opt);
+int select_k_by_dm(data *dat, options *opt);
 void compute_costs(double *crit, double *var, double *size, unsigned int n, unsigned int K, double *cost, double *rrcost, double *krcost, double *sd, double *rsd, double *ksd);
 void compute_jump_stats(double cost, double rrcost, double krcost, double pcost, double prrcost, double pkrcost, double *jump, double *rjump, double *kjump, double Y, int reset);
+unsigned int count_initializations(FILE *fp);
+int read_ini_data(FILE *fp, unsigned int *of_vals, double *t_vals, unsigned int *nini, options *opt);
 int restore_state(data *dat, options *opt);
 int shuffle_data(data *dat, options *opt);
 static inline int initialize(data *dat, options *opt);
@@ -46,6 +50,8 @@ void write_best_solution(data *dat, options *opt, FILE *fps);
 static inline void stash_state(data *dat, options *opt);
 void free_data_for_k(data *dat, options *opt);
 void free_data(data *dat);
+
+#ifdef MATHLIB_STANDALONE
 
 int main(int argc, const char **argv)
 {
@@ -75,8 +81,11 @@ int main(int argc, const char **argv)
 	if ((err = finish_make_data(dat, opt)))
 		goto CLEAR_AND_EXIT;
 
-	if (opt->estimate_k) {
-		err = estimate_k(dat, opt);
+	if (opt->select_k && !opt->dm_method) {
+		err = select_k(dat, opt);
+		goto CLEAR_AND_EXIT;
+	} else if (opt->select_k && opt->dm_method) {
+		err = select_k_by_dm(dat, opt);
 		goto CLEAR_AND_EXIT;
 	}
 
@@ -85,6 +94,17 @@ int main(int argc, const char **argv)
 
 	if (opt->soln_file && (err = initialize_outfiles(dat, opt, &fps, &fpi)))
 		goto CLEAR_AND_EXIT;
+
+#else
+
+int run_kmodes(data *dat, options *opt)
+{
+	int err = NO_ERROR;		/* error code */
+	options *opt = NULL;		/* run options */
+	data *dat = NULL;		/* data object */
+	TIME_STRUCT start;		/* timing */
+
+#endif
 
 	/* will run k-modes: do setup */
 	if (opt->n_init && (opt->kmodes_algorithm == KMODES_HUANG
@@ -155,7 +175,9 @@ int main(int argc, const char **argv)
 		}
 
 		/* counts function call time ... oh well */
+#ifdef MATHLIB_STANDALONE
 		write_status(dat, opt, fps, fpi, i, &start);
+#endif
 
 		/* record best solution */
 		if ((!err || err == KMODES_EXCEED_ITER_WARNING)
@@ -177,7 +199,9 @@ int main(int argc, const char **argv)
 	dat->seconds += ELAP_TIME(&start) - dat->uncounted_seconds;
 	dat->n_init += opt->n_init;
 
+#ifdef MATHLIB_STANDALONE
 	write_best_solution(dat, opt, fps);
+#endif
 
 CLEAR_AND_EXIT:
 
@@ -191,6 +215,7 @@ CLEAR_AND_EXIT:
 
 	return(err);
 } /* main */
+
 
 
 /**
@@ -788,7 +813,7 @@ void write_status(data *dat, options *opt, FILE *fps, FILE *fpi,            /**/
 	}
 
 	if ((opt->simulate || opt->true_cluster) && opt->quiet >= MINIMAL)
-		fprintf(stdout, " %6.3f (%.3f)", ar, dat->best_rand);
+		fprintf(stdout, " %.3f (%.3f)", ar, dat->best_rand);
 	if (opt->quiet >= MINIMAL)
 		fprintf(stdout, "\n");
 
@@ -851,7 +876,8 @@ int make_options(options **opt) {
 	(*opt)->kmodes_algorithm = KMODES_HUANG;
 	(*opt)->init_method = KMODES_INIT_RANDOM_SEEDS;
 	(*opt)->continue_run = 0;
-	(*opt)->estimate_k = 0;
+	(*opt)->select_k = 0;
+	(*opt)->dm_method = 0;
 	(*opt)->kopt = NULL;
 	(*opt)->update_modes = 0;
 #ifdef __KMODES_NO_QTRANS__
@@ -912,9 +938,9 @@ int parse_options(options *opt, int argc, const char **argv)
 	int err = NO_ERROR;
 	char a;
 
-	opt->n_k = 0;
-	opt->min_k = UINT_MAX;
-	opt->max_k = 0;
+	opt->n_k = opt->n_nk = 0;
+	opt->min_k = opt->min_nk = UINT_MAX;
+	opt->max_k = opt->max_nk = 0;
 	for (i = 1; i < argc; ++i) {
 		j = 0;
 		if (argv[i][j] == '-') {
@@ -929,12 +955,20 @@ int parse_options(options *opt, int argc, const char **argv)
 					opt->min_k = k;
 				else if (k > opt->max_k)
 					opt->max_k = k;
+			} else if (argv[i][j] == 'n'
+				&& isdigit((unsigned char)argv[i][j+1])) {
+				unsigned int k = strtoul(&argv[i][j+1], NULL, 0);
+				++opt->n_nk;
+				if (k < opt->min_nk)
+					opt->min_nk = k;
+				else if (k > opt->max_nk)
+					opt->max_nk = k;
 			}
 		}
 	}
 	if (opt->n_k && opt->n_k != opt->max_k - opt->min_k + 1)
-		return mmessage(ERROR_MSG, MEMORY_ALLOCATION, "-k[0-9] "
-			"arguments must identify contiguous values of K.\n");
+		return mmessage(ERROR_MSG, INVALID_USER_INPUT, "-k[0-9] "
+			"arguments must identify contiguous values of K. %u %u %u\n", opt->n_k, opt->min_k, opt->max_k);
 	if (opt->n_k) {
 		debug_msg(MINIMAL <= fxn_debug, opt->quiet, "%u -k[0-9] "
 						"arguments\n", opt->n_k);
@@ -944,7 +978,27 @@ int parse_options(options *opt, int argc, const char **argv)
 			sizeof *opt->n_result_files);
 		if (opt->result_files == NULL || opt->n_result_files == NULL)
 			return mmessage(ERROR_MSG, MEMORY_ALLOCATION,
-				"options:result_files");
+				"options::result_files\n");
+	}
+
+	if (opt->n_nk && opt->n_nk != opt->max_nk - opt->min_nk + 1)
+		return mmessage(ERROR_MSG, INVALID_USER_INPUT, "-n[0-9] "
+			"arguments must identify contiguous values of K. %u %u %u\n", opt->n_nk, opt->min_nk, opt->max_nk);
+	if (opt->n_nk) {
+		if (opt->n_nk != opt->n_k || opt->min_nk != opt->min_k
+			|| opt->max_nk != opt->max_k)
+			return mmessage(ERROR_MSG, INVALID_USER_INPUT,
+				"-n[0-9] arguments must match -k[0-9] "
+				"arguments one-for-one.\n");
+		debug_msg(MINIMAL <= fxn_debug, opt->quiet, "%u -n[0-9] "
+						"arguments\n", opt->n_nk);
+		opt->nup_ini_files = malloc(opt->n_nk *
+			sizeof *opt->nup_ini_files);
+		opt->n_nup_ini_files = malloc(opt->n_nk *
+			sizeof *opt->n_nup_ini_files);
+		if (!opt->nup_ini_files || !opt->n_nup_ini_files)
+			return mmessage(ERROR_MSG, MEMORY_ALLOCATION,
+				"options::nup_ini_files\n");
 	}
 
 	for (i = 1; i < argc; i++) {
@@ -955,256 +1009,271 @@ int parse_options(options *opt, int argc, const char **argv)
 		while (a == '-' && ++j < (int) strlen(argv[i]))
 			a = argv[i][j];
 		switch(a) {
-			case 'c':
-				if (!strncmp(&argv[i][j], "cont", 4)) {
-					opt->continue_run = 1;
-					break;
-				} else if (i + 1 == argc)
-					goto CMDLINE_ERROR;
-				opt->true_column = read_uint(argc, argv, ++i, (void *)opt);
+
+		case 'c':
+			if (!strncmp(&argv[i][j], "cont", 4)) {
+				opt->continue_run = 1;
+				break;
+			} else if (i + 1 == argc)
+				goto CMDLINE_ERROR;
+			opt->true_column = read_uint(argc, argv, ++i, (void *)opt);
+			if (errno)
+				goto CMDLINE_ERROR;
+			debug_msg(MINIMAL <= fxn_debug, opt->quiet,
+				"true column = %u\n", opt->true_column);
+			break;
+		case 'K':
+		case 'k':
+			if (i + 1 == argc)
+				goto CMDLINE_ERROR;
+			if (strlen(&argv[i][j]) > 1) {
+				unsigned int k = strtoul(&argv[i][j+1],
+					NULL, 0);
+				opt->n_result_files[k - opt->min_k]
+					= read_cmdline_strings(argc,
+					argv, i + 1, &opt->result_files[
+					k - opt->min_k], (void *)opt);
+				i += opt->n_result_files[k - opt->min_k];
+				opt->select_k = 1;
+			} else {
+				opt->K = read_uint(argc, argv, ++i,
+					(void *)opt);
 				if (errno)
 					goto CMDLINE_ERROR;
-				debug_msg(MINIMAL <= fxn_debug, opt->quiet,
-					"true column = %u\n", opt->true_column);
-				break;
-			case 'K':
-			case 'k':
-				if (i + 1 == argc)
-					goto CMDLINE_ERROR;
-				if (strlen(&argv[i][j]) > 1) {
-					unsigned int k = strtoul(&argv[i][j+1],
-						NULL, 0);
-					opt->n_result_files[k - opt->min_k]
-						= read_cmdline_strings(argc,
-						argv, i + 1, &opt->result_files[
-						k - opt->min_k], (void *)opt);
-					i += opt->n_result_files[k - opt->min_k];
-					opt->estimate_k = 1;
-				} else {
-					opt->K = read_uint(argc, argv, ++i,
-						(void *)opt);
-					if (errno)
-						goto CMDLINE_ERROR;
-					debug_msg(MINIMAL <= fxn_debug,
-						opt->quiet, "K = %u.\n", opt->K);//
-				}
-				break;
-			case 'l':
-				opt->kmodes_algorithm = KMODES_LLOYD;
+				debug_msg(MINIMAL <= fxn_debug,
+					opt->quiet, "K = %u.\n", opt->K);
+			}
+			break;
+		case 'l':
+			opt->kmodes_algorithm = KMODES_LLOYD;
+			debug_msg(QUIET <= fxn_debug, opt->quiet,
+				"Using Lloyd's algorithm.\n");
+			break;
+		case 'm':
+			if (i + 1 == argc)
+				goto CMDLINE_ERROR;
+			opt->mfile = argv[++i];
+			if (access(opt->mfile, F_OK) == -1) {
+				opt->mfile = NULL;
+				opt->target = read_cmdline_double(argc,
+					argv, i, (void *)opt);
+			} else if (i + 1 < argc && argv[i + 1][0] != '-') {
+				opt->mfile_out = argv[++i];
+			}
+			break;
+		case 'w':
+			opt->kmodes_algorithm = KMODES_HARTIGAN_WONG;
+			debug_msg(QUIET <= fxn_debug, opt->quiet,
+				"Using Hartigan and Wong algorithm.\n");
+			break;
+		case 'f':
+			if (i + 1 == argc)
+				goto CMDLINE_ERROR;
+			opt->datafile = argv[++i];
+			if (i + 1 < argc && argv[i+1][0] != '-') {
+				opt->data_outfile = argv[++i];
 				debug_msg(QUIET <= fxn_debug, opt->quiet,
-					"Using Lloyd's algorithm.\n");
-				break;
-			case 'm':
-				if (i + 1 == argc)
-					goto CMDLINE_ERROR;
-				opt->mfile = argv[++i];
-				if (access(opt->mfile, F_OK) == -1) {
-					opt->mfile = NULL;
-					opt->target = read_cmdline_double(argc,
-						argv, i, (void *)opt);
-				} else if (i + 1 < argc && argv[i + 1][0] != '-')
-					opt->mfile_out = argv[++i];
-				break;
-			case 'w':
-				opt->kmodes_algorithm = KMODES_HARTIGAN_WONG;
-				debug_msg(QUIET <= fxn_debug, opt->quiet,
-					"Using Hartigan and Wong algorithm.\n");
-				break;
-			case 'f':
-				if (i + 1 == argc)
-					goto CMDLINE_ERROR;
-				opt->datafile = argv[++i];
-				if (i + 1 < argc && argv[i+1][0] != '-') {
-					opt->data_outfile = argv[++i];
-					debug_msg(QUIET <= fxn_debug, opt->quiet,
-						"Will write data, after possible "
-						"adjustments, to file = %s\n",
-						opt->data_outfile);
-				}
-				debug_msg(QUIET <= fxn_debug, opt->quiet,
-					"Data file = %s\n", opt->datafile);
-				break;
-			case 'o':
-				if (i + 1 == argc)
-					goto CMDLINE_ERROR;
-				opt->soln_file = argv[++i];
-				if (i + 1 < argc && argv[i+1][0] != '-')
-					opt->ini_file = argv[++i];
-				break;
-			case 'i':
-				if (i + 1 == argc || argv[i + 1][0] == '-')
-					goto CMDLINE_ERROR;
-				if (!strcmp(argv[i+1], "rnd"))
-					opt->init_method = KMODES_INIT_RANDOM_SEEDS;
-				else if (!strcmp(argv[i+1], "h97"))
-					opt->init_method = KMODES_INIT_H97;
-				else if (!strcmp(argv[i+1], "h97rnd"))
-					opt->init_method = KMODES_INIT_H97_RANDOM;
-				else if (!strcmp(argv[i+1], "hd17"))
-					opt->init_method = KMODES_INIT_HD17;
-				else if (!strcmp(argv[i+1], "clb09"))
-					opt->init_method = KMODES_INIT_CLB09;
-				else if (!strcmp(argv[i+1], "clb09rnd"))
-					opt->init_method = KMODES_INIT_CLB09_RANDOM;
-				else if (!strcmp(argv[i+1], "av07"))
-					opt->init_method = KMODES_INIT_AV07;
-				else if (!strcmp(argv[i+1], "av07grd"))
-					opt->init_method = KMODES_INIT_AV07_GREEDY;
-				else if (!strcmp(argv[i+1], "rndp"))
-					opt->init_method = KMODES_INIT_RANDOM_FROM_PARTITION;
-				else if (!strcmp(argv[i+1], "rnds"))
-					opt->init_method = KMODES_INIT_RANDOM_FROM_SET;
+					"Will write data, after possible "
+					"adjustments, to file = %s\n",
+					opt->data_outfile);
+			}
+			debug_msg(QUIET <= fxn_debug, opt->quiet,
+				"Data file = %s\n", opt->datafile);
+			break;
+		case 'o':
+			if (i + 1 == argc)
+				goto CMDLINE_ERROR;
+			opt->soln_file = argv[++i];
+			if (i + 1 < argc && argv[i+1][0] != '-')
+				opt->ini_file = argv[++i];
+			break;
+		case 'i':
+			if (i + 1 == argc || argv[i + 1][0] == '-')
+				goto CMDLINE_ERROR;
+			if (!strcmp(argv[i+1], "rnd"))
+				opt->init_method = KMODES_INIT_RANDOM_SEEDS;
+			else if (!strcmp(argv[i+1], "h97"))
+				opt->init_method = KMODES_INIT_H97;
+			else if (!strcmp(argv[i+1], "h97rnd"))
+				opt->init_method = KMODES_INIT_H97_RANDOM;
+			else if (!strcmp(argv[i+1], "hd17"))
+				opt->init_method = KMODES_INIT_HD17;
+			else if (!strcmp(argv[i+1], "clb09"))
+				opt->init_method = KMODES_INIT_CLB09;
+			else if (!strcmp(argv[i+1], "clb09rnd"))
+				opt->init_method = KMODES_INIT_CLB09_RANDOM;
+			else if (!strcmp(argv[i+1], "av07"))
+				opt->init_method = KMODES_INIT_AV07;
+			else if (!strcmp(argv[i+1], "av07grd"))
+				opt->init_method = KMODES_INIT_AV07_GREEDY;
+			else if (!strcmp(argv[i+1], "rndp"))
+				opt->init_method = KMODES_INIT_RANDOM_FROM_PARTITION;
+			else if (!strcmp(argv[i+1], "rnds"))
+				opt->init_method = KMODES_INIT_RANDOM_FROM_SET;
 
-				/* assume seed indices are being provided */
-				else if (access(argv[i+1],  F_OK) == -1) {
+			/* assume seed indices are being provided */
+			else if (access(argv[i+1],  F_OK) == -1) {
 
-					opt->init_method = KMODES_INIT_USER_SEEDS;
+				opt->init_method = KMODES_INIT_USER_SEEDS;
 
-					opt->n_sd_idx = read_cmdline_uints(argc,
-						argv, ++i, &opt->seed_idx,
-						(void *)opt);
-					if (errno || !opt->n_sd_idx)
-						goto CMDLINE_ERROR;
-					debug_msg(MINIMAL <= fxn_debug,
-						opt->quiet, "Seed indices:");
-					debug_call(MINIMAL <= fxn_debug,
-						opt->quiet, fprint_uints(stderr,
-						opt->seed_idx, opt->n_sd_idx,
-						1, 1));
-					i += opt->n_sd_idx - 1;
-
-				/* assume seeds are provided in a file */
-				} else {
-					opt->sfile = argv[i+1];
-					//opt->init_method = KMODES_INIT_RANDOM_FROM_SET;
-				}
-				debug_msg(QUIET <= fxn_debug, opt->quiet,
-					"Using %s initialization.\n",
-					kmodes_init_method(opt->init_method));
-				++i;
-				break;
-			case 'n':
-				if (i + 1 == argc)
+				opt->n_sd_idx = read_cmdline_uints(argc,
+					argv, ++i, &opt->seed_idx,
+					(void *)opt);
+				if (errno || !opt->n_sd_idx)
 					goto CMDLINE_ERROR;
+				debug_msg(MINIMAL <= fxn_debug,
+					opt->quiet, "Seed indices:");
+				debug_call(MINIMAL <= fxn_debug,
+					opt->quiet, fprint_uints(stderr,
+					opt->seed_idx, opt->n_sd_idx,
+					1, 1));
+				i += opt->n_sd_idx - 1;
+
+			/* assume seeds are provided in a file */
+			} else {
+				opt->sfile = argv[i+1];
+				//opt->init_method = KMODES_INIT_RANDOM_FROM_SET;
+			}
+			debug_msg(QUIET <= fxn_debug, opt->quiet,
+				"Using %s initialization.\n",
+				kmodes_init_method(opt->init_method));
+			++i;
+			break;
+		case 'n':
+			if (i + 1 == argc)
+				goto CMDLINE_ERROR;
+			if (isdigit((unsigned char) argv[i][j+1])) {
+				unsigned int k = strtoul(&argv[i][j+1],
+					NULL, 0);
+				opt->n_nup_ini_files[k - opt->min_nk]
+					= read_cmdline_strings(argc,
+					argv, i + 1, &opt->nup_ini_files[
+					k - opt->min_nk], (void *)opt);
+				i += opt->n_nup_ini_files[k - opt->min_nk];
+				opt->select_k = 1;
+				opt->dm_method = 1;
+			} else {
 				opt->n_init = read_uint(argc, argv, ++i,
 					(void *)opt);
 				if (errno)
 					goto CMDLINE_ERROR;
 				debug_msg(MINIMAL <= fxn_debug, opt->quiet,
 					"Initializations = %u\n", opt->n_init);
-				break;
-			case '1':
-				opt->subtract_one = 1;
-				break;
-			case 'p':
-				if (i + 1 == argc || (err =
-					process_arg_p(argc, argv, &i, j, opt)))
-					goto CMDLINE_ERROR;
-				break;
-			case 'r':
-				if (i + 1 == argc)
-					goto CMDLINE_ERROR;
-				if (!strncmp(&argv[i][j], "run", 3)) {
-					opt->n_inner_init = read_uint(argc,
-						argv, ++i, (void *)opt);
-					debug_msg(MINIMAL <= fxn_debug,
-						opt->quiet, "Inner "
-						"initializations; %u\n",
-						opt->n_inner_init);
-				} else {
-					opt->seed = read_uint(argc, argv, ++i,
-						(void *)opt);
-					srand(opt->seed);
-					debug_msg(MINIMAL <= fxn_debug,
-						opt->quiet, "Seed: "
-						"%lu\n", opt->seed);
-				}
-				if (errno)
-					goto CMDLINE_ERROR;
-				break;
-			case 's':	/*-s <sn> <sp> <sc> <st1> <st2>*/
-				/* no appropriate arguments */
-				if (!strcmp(&argv[i][j], "shuffle")) {
-					opt->shuffle = 1;
-					debug_msg(MINIMAL <= fxn_debug,
-						opt->quiet, "Data will be "
-						"shuffled.\n");
-					break;
-				}
-				if (i + 5 >= argc || argv[i + 1][0] == '-')
-					goto CMDLINE_ERROR;
-				opt->simulate = 1;
-				opt->sim_n_observations = read_ulong(argc, argv,
-					++i, (void *)opt);
-				opt->sim_n_coordinates = read_ulong(argc, argv,
-					++i, (void *)opt);
-				unsigned int tst = read_uint(argc, argv, ++i,
-					(void *)opt);
-				opt->sim_between_t = read_cmdline_double(argc,
-					argv, ++i, (void *)opt);
-				opt->sim_within_t = read_cmdline_double(argc,
-					argv, ++i, (void *)opt);
-				if (errno)
-					goto CMDLINE_ERROR;
-				if (tst > pow(2, 8*sizeof(data_t))) {
-					mmessage(ERROR_MSG, INVALID_USER_INPUT,
-						"Cannot simulate data in more "
-						"than %u categories.\n",
-						(unsigned int) pow(2,
-						8*sizeof(data_t)));
-					goto CMDLINE_ERROR;
-				} else
-					opt->sim_n_categories = tst;
-				debug_msg(MINIMAL <= fxn_debug, opt->quiet,
-					"Simulation:\n\t%u observations\n\t%u "
-					"coordinates\n\t%u categories\n\t%f "
-					"between variance\n\t%f within "
-					"variance\n", opt->sim_n_observations,
-					opt->sim_n_coordinates,
-					opt->sim_n_categories,
-					opt->sim_between_t, opt->sim_within_t);
-
-				break;
-			case 't':
-				opt->seconds = read_cmdline_double(argc, argv,
-					++i, (void *)opt);
-				debug_msg(QUIET <= fxn_debug, opt->quiet,
-					"Running for %.0fs.\n", opt->seconds);
-				break;
-			case 'u':
-				opt->update_modes = 1;
-				debug_msg(MINIMAL <= fxn_debug, opt->quiet,
-					"Update modes: on\n");
-				break;
-			case 'q':
-#ifndef __KMODES_NO_QTRANS__
-				if (!strncmp(&argv[i][j], "qt", 2)
-					|| !strncmp(&argv[i][j], "quic", 4))
-					opt->use_qtran = 0;
-				else
-#endif
-					opt->quiet = QUIET;
-				break;
-			case 'h':
-				if (!strcmp(&argv[i][j], "h97")) {
-					opt->kmodes_algorithm = KMODES_HUANG;
-					debug_msg(QUIET <= fxn_debug, opt->quiet,//
-						"Using Huang's algorithm.\n");
-				} else if (!strncmp(&argv[i][j], "hart",
-							strlen("hart"))) {
-					opt->use_hartigan = 1;
-					debug_msg(QUIET <= fxn_debug, opt->quiet,
-						"Use Hartigan's update with "
-							"Huang's algorithm.\n");
-				} else {
-					fprint_usage(stderr, argv[0], opt);
-					free_options(opt);
-					exit(EXIT_SUCCESS);
-				}
-				break;
-			default:
-				err = INVALID_CMD_OPTION;
+			}
+			break;
+		case '1':
+			opt->subtract_one = 1;
+			break;
+		case 'p':
+			if (i + 1 == argc || (err =
+				process_arg_p(argc, argv, &i, j, opt)))
 				goto CMDLINE_ERROR;
+			break;
+		case 'r':
+			if (i + 1 == argc)
+				goto CMDLINE_ERROR;
+			if (!strncmp(&argv[i][j], "run", 3)) {
+				opt->n_inner_init = read_uint(argc,
+					argv, ++i, (void *)opt);
+				debug_msg(MINIMAL <= fxn_debug,
+					opt->quiet, "Inner "
+					"initializations; %u\n",
+					opt->n_inner_init);
+			} else {
+				opt->seed = read_uint(argc, argv, ++i,
+					(void *)opt);
+				srand(opt->seed);
+				debug_msg(MINIMAL <= fxn_debug,
+					opt->quiet, "Seed: "
+					"%lu\n", opt->seed);
+			}
+			if (errno)
+				goto CMDLINE_ERROR;
+			break;
+		case 's':	/*-s <sn> <sp> <sc> <st1> <st2>*/
+			/* no appropriate arguments */
+			if (!strcmp(&argv[i][j], "shuffle")) {
+				opt->shuffle = 1;
+				debug_msg(MINIMAL <= fxn_debug,
+					opt->quiet, "Data will be "
+					"shuffled.\n");
+				break;
+			}
+			if (i + 5 >= argc || argv[i + 1][0] == '-')
+				goto CMDLINE_ERROR;
+			opt->simulate = 1;
+			opt->sim_n_observations = read_ulong(argc, argv,
+				++i, (void *)opt);
+			opt->sim_n_coordinates = read_ulong(argc, argv,
+				++i, (void *)opt);
+			unsigned int tst = read_uint(argc, argv, ++i,
+				(void *)opt);
+			opt->sim_between_t = read_cmdline_double(argc,
+				argv, ++i, (void *)opt);
+			opt->sim_within_t = read_cmdline_double(argc,
+				argv, ++i, (void *)opt);
+			if (errno)
+				goto CMDLINE_ERROR;
+			if (tst > pow(2, 8*sizeof(data_t))) {
+				mmessage(ERROR_MSG, INVALID_USER_INPUT,
+					"Cannot simulate data in more "
+					"than %u categories.\n",
+					(unsigned int) pow(2,
+					8*sizeof(data_t)));
+				goto CMDLINE_ERROR;
+			} else
+				opt->sim_n_categories = tst;
+			debug_msg(MINIMAL <= fxn_debug, opt->quiet,
+				"Simulation:\n\t%u observations\n\t%u "
+				"coordinates\n\t%u categories\n\t%f "
+				"between variance\n\t%f within "
+				"variance\n", opt->sim_n_observations,
+				opt->sim_n_coordinates,
+				opt->sim_n_categories,
+				opt->sim_between_t, opt->sim_within_t);
+
+			break;
+		case 't':
+			opt->seconds = read_cmdline_double(argc, argv,
+				++i, (void *)opt);
+			debug_msg(QUIET <= fxn_debug, opt->quiet,
+				"Running for %.0fs.\n", opt->seconds);
+			break;
+		case 'u':
+			opt->update_modes = 1;
+			debug_msg(MINIMAL <= fxn_debug, opt->quiet,
+				"Update modes during first iteration: on\n");
+			break;
+		case 'q':
+#ifndef __KMODES_NO_QTRANS__
+			if (!strncmp(&argv[i][j], "qt", 2)
+				|| !strncmp(&argv[i][j], "quic", 4))
+				opt->use_qtran = 0;
+			else
+#endif
+
+				opt->quiet = QUIET;
+			break;
+		case 'h':
+			if (!strcmp(&argv[i][j], "h97")) {
+				opt->kmodes_algorithm = KMODES_HUANG;
+				debug_msg(QUIET <= fxn_debug, opt->quiet,//
+					"Using Huang's algorithm.\n");
+			} else if (!strncmp(&argv[i][j], "hart",
+						strlen("hart"))) {
+				opt->use_hartigan = 1;
+				debug_msg(QUIET <= fxn_debug, opt->quiet,
+					"Use Hartigan's update with "
+						"Huang's algorithm.\n");
+			} else {
+				fprint_usage(stderr, argv[0], opt);
+				free_options(opt);
+				exit(EXIT_SUCCESS);
+			}
+			break;
+		default:
+			err = INVALID_CMD_OPTION;
+			goto CMDLINE_ERROR;
 		}
 	}
 
@@ -1277,6 +1346,11 @@ int parse_options(options *opt, int argc, const char **argv)
 		if (opt->n_init)
 			mmessage(WARNING_MSG, NO_ERROR, "Setting number of "
 				"clusters to estimate to K=%u\n", opt->K);
+	}
+
+	if (!opt->datafile) {
+		return mmessage(ERROR_MSG, INVALID_USER_INPUT, "You must "
+			"provide the name of a data file:  See option -f.\n");
 	}
 
 	return err;
@@ -2599,14 +2673,241 @@ void write_best_solution(data *dat, options *opt, FILE *fps)
 	}
 } /* write_best_solution */
 
+int select_k_by_dm(data *dat, options *opt)
+{
+	int err = NO_ERROR;
+	int fxn_debug = ABSOLUTE_SILENCE;//DEBUG_I;//
+	double tratio, ptratio;
+	double max_dm = -1;
+	unsigned int max_K_dm = 0;
+
+	if (!opt->result_files || !opt->nup_ini_files)
+		return mmessage(ERROR_MSG, INVALID_USER_INPUT, "Use -u K "
+			"... and -n K arguments to provide names of "
+			"initialization data files.\n");
+	
+	unsigned int *n_update_ini = malloc(opt->n_k * sizeof *n_update_ini);
+
+	if (!n_update_ini)
+		return mmessage(ERROR_MSG, MEMORY_ALLOCATION, "n_update_ini");
+
+	for (unsigned int l = 0; l < opt->n_k; ++l) {
+		unsigned int *obj_func_vals = NULL;
+		size_t *idx = NULL;
+		double *time_vals = NULL;
+		unsigned int n_init = 0;
+
+		opt->K = opt->min_k + l;
+
+		/* count number of initializations with update */
+		for (unsigned int j = 0; j < opt->n_result_files[l]; ++j) {
+			opt->ini_file = opt->result_files[l][j];
+			FILE *fp = fopen(opt->ini_file, "r");
+			if (!fp)
+				return mmessage(ERROR_MSG, FILE_NOT_FOUND, "C"
+					"ould not open '%s'.\n", opt->ini_file);
+			n_init += count_initializations(fp);
+			fclose(fp);
+		}
+
+		n_update_ini[l] = n_init;
+		debug_msg(DEBUG_I <= fxn_debug, fxn_debug, "Number of "
+			"initializations with update: %u\n", n_init);
+
+		/* count number of initializations without update */
+		for (unsigned int j = 0; j < opt->n_nup_ini_files[l]; ++j) {
+			opt->ini_file = opt->nup_ini_files[l][j];
+			FILE *fp = fopen(opt->ini_file, "r");
+			if (!fp)
+				return mmessage(ERROR_MSG, FILE_NOT_FOUND, "C"
+					"ould not open '%s'.\n", opt->ini_file);
+			n_init += count_initializations(fp);
+			fclose(fp);
+		}
+
+		debug_msg(DEBUG_I <= fxn_debug, fxn_debug, "Total number of "
+			"initializations: %u\n", n_init);
+
+		obj_func_vals = malloc(n_init * sizeof *obj_func_vals);
+		time_vals = malloc(n_init * sizeof *time_vals);
+
+		if (!obj_func_vals || !time_vals) {
+			 err = mmessage(ERROR_MSG, MEMORY_ALLOCATION,
+						"obj_func_vals or time_vals");
+			goto RETURN_SELECT_K_BY_DM;
+		}
+
+		/* extract objective function and times */
+		n_init = 0;
+		for (unsigned int j = 0; j < opt->n_result_files[l]; ++j) {
+			opt->ini_file = opt->result_files[l][j];
+			FILE *fp = fopen(opt->ini_file, "r");
+			if (!fp) {
+				err = mmessage(ERROR_MSG, FILE_NOT_FOUND, "C"
+					"ould not open '%s'.\n", opt->ini_file);
+				goto RETURN_SELECT_K_BY_DM;
+			}
+			if ((err = read_ini_data(fp, obj_func_vals, time_vals,
+								&n_init, opt)))
+				goto RETURN_SELECT_K_BY_DM;
+			fclose(fp);
+		}
+		/* count number of initializations without update */
+		for (unsigned int j = 0; j < opt->n_nup_ini_files[l]; ++j) {
+			opt->ini_file = opt->nup_ini_files[l][j];
+			FILE *fp = fopen(opt->ini_file, "r");
+			if (!fp) {
+				err = mmessage(ERROR_MSG, FILE_NOT_FOUND, "C"
+					"ould not open '%s'.\n", opt->ini_file);
+				goto RETURN_SELECT_K_BY_DM;
+			}
+			if ((err = read_ini_data(fp, obj_func_vals, time_vals,
+								&n_init, opt)))
+				goto RETURN_SELECT_K_BY_DM;
+			fclose(fp);
+		}
+
+		/* find quantile */
+		idx = malloc(n_init * sizeof *idx);
+
+		if (!idx) {
+			err = mmessage(ERROR_MSG, MEMORY_ALLOCATION,
+						"obj_func_vals or time_vals");
+			goto RETURN_SELECT_K_BY_DM;
+		}
+
+		for (unsigned int j = 0; j < n_init; ++j)
+			idx[j] = j;
+
+		select_uint_with_index(obj_func_vals, idx, n_init,
+						(size_t) (n_init * 0.05));
+
+		double obj_func_5th_quant = obj_func_vals[idx[
+						(size_t) (n_init * 0.05)]];
+
+		debug_msg(DEBUG_I <= fxn_debug, fxn_debug, "5th quantile: %f\n",
+							obj_func_5th_quant);
+
+		double p_utime = 0, p_ntime = 0;
+		double avg_utime = 0, avg_ntime = 0;
+		unsigned int n_utime = 0, n_ntime = 0;
+
+		for (unsigned int j = 0; j < n_update_ini[l]; ++j)
+			if (obj_func_vals[j] <= obj_func_5th_quant) {
+				avg_utime += time_vals[j] - p_utime;
+				p_utime = time_vals[j];
+				++n_utime;
+			}
+		for (unsigned int j = n_update_ini[l]; j < n_init; ++j)
+			if (obj_func_vals[j] <= obj_func_5th_quant) {
+				avg_ntime += time_vals[j] - p_ntime;
+				p_ntime = time_vals[j];
+				++n_ntime;
+			}
+
+		avg_utime /= n_utime;
+		avg_ntime /= n_ntime;
+
+		double ratio = avg_utime / avg_ntime;
+
+		fprintf(stdout, "K = %u: ratio = %5.3f (%.3e / %.3e)\n",
+					opt->K, ratio, avg_utime, avg_ntime);
+
+		if (ratio > max_dm) {
+			max_dm = ratio;
+			max_K_dm = opt->K;
+		}
+
+		continue;
+
+RETURN_SELECT_K_BY_DM:
+		if (time_vals)
+			free(time_vals);
+		if (obj_func_vals)
+			free(obj_func_vals);
+		if (idx)
+			free(idx);
+
+		return err;
+
+	}
+
+	fprintf(stdout, "Daneel method selects K = %u.\n", max_K_dm);
+
+	return NO_ERROR;
+} /* select_k_by_dm */
+
+int read_ini_data(FILE *fp, unsigned int *of_vals, double *t_vals,
+					unsigned int *nini, options *opt)
+{
+	unsigned int n_start = *nini;
+	unsigned int tmp = 0;
+
+	do {
+		fscanf(fp, "%*u %*u");		/* initialization index */
+		if (feof(fp))
+			break;
+		for (unsigned int k = 0; k < opt->K; ++k)
+			fscanf(fp, "%u", &tmp);	/* per-cluster criteria */
+		if (fscanf(fp, "%u", &of_vals[*nini]) != 1)
+			return mmessage(ERROR_MSG, FILE_FORMAT_ERROR,
+				"Line %u.\n", *nini - n_start);
+		if (*nini == n_start) {
+			char c = fgetc(fp);
+			while ((c = fgetc(fp)) && c != ' ' && !feof(fp));
+		} else {
+			fscanf(fp, "%*f");
+		}
+		if (opt->simulate || opt->true_cluster) {
+			if (*nini == n_start) {
+				fscanf(fp, "%*f");
+				char c = fgetc(fp);
+				while ((c = fgetc(fp)) && c != ' ' && !feof(fp));
+				fscanf(fp, "%*f %*f");
+			} else {
+				fscanf(fp, "%*f %*f %*f %*f");
+			}
+		}
+		if (fscanf(fp, "%lf", &t_vals[*nini]) != 1)
+			return mmessage(ERROR_MSG, FILE_FORMAT_ERROR,
+				"line %u (did you use --column?).\n",
+							*nini - n_start);
+		++(*nini);
+	} while (!feof(fp));
+
+	return NO_ERROR;
+} /* read_ini_data */
+
+unsigned int count_initializations(FILE *fp)
+{
+	unsigned int nline = 0;
+
+	while (!feof(fp)) {
+		char c = fgetc(fp);
+
+		if (c != '\n' && !feof(fp))
+			++nline;
+
+		/* forward to EOL or EOF */
+		do {
+			c = fgetc(fp);
+		} while (c != '\n' && !feof(fp));
+	}
+
+	rewind(fp);
+
+	return nline;
+} /* count_initializations */
+
 /**
- * Estimate K.  Forgive me, this function is not yet beautiful.
+ * Select K by jump and KL statistics.  Forgive me, this function is not yet
+ * beautiful.
  *
  * @param dat	data object pointer
  * @param opt	options object pointer
  * @return	error status
  */
-int estimate_k(data *dat, options *opt)
+int select_k(data *dat, options *opt)
 {
 	int fxn_debug = ABSOLUTE_SILENCE;//DEBUG_I;//
 	int err = NO_ERROR;
@@ -2627,7 +2928,7 @@ int estimate_k(data *dat, options *opt)
 
 	if (!opt->result_files)
 		return mmessage(ERROR_MSG, INVALID_USER_INPUT, "Use -kK "
-			"... arguments to provides output files.\n");
+			"... arguments to provide output files.\n");
 
 	double *asize = malloc(opt->max_k * sizeof *asize);
 	double *pasize = malloc(opt->max_k * sizeof *pasize);
@@ -2707,6 +3008,7 @@ int estimate_k(data *dat, options *opt)
 
 		for (unsigned int i = 0; i < dat->n_observations; ++i) {
 			unsigned int j = dat->best_cluster_id[ridx[i]];
+
 			obsn_hd[i] = hd_fast(dat->dmat[i], dat->best_modes[j],
 				dat->n_coordinates);
 			debug_msg(DEBUG_II <= fxn_debug, fxn_debug,
@@ -2926,11 +3228,11 @@ int estimate_k(data *dat, options *opt)
 	free(pobsn_cnt);
 
 	return err;
-} /* estimate_k */
+} /* select_k */
 
 
 /**
- * Auxiliary function for estimate_k, computes various K-selection objectives.
+ * Auxiliary function for select_k, computes various K-selection objectives.
  * Forgive me, not beautiful.
  *
  * @param crit	criterion for each k
@@ -3091,10 +3393,9 @@ void fprint_usage(FILE *fp, const char *cmdname, void *obj)
 		"setting random number seed SEED, and outputs the results in OFILE.\n", &cmdname[start]);
 
 	fprintf(fp, "\n\t"
-		"Data in FILE should be one observation per line, positive integers for\n\t"
-		"each coordinate, separated by spaces.  There should be no header or\n\t"
-		"comments.  %s is compiled by default to read coordinate values\n\t"
-		"0-256.  Redefine data_t-related constants in constants.h to expand.\n", &cmdname[start]);
+		"Data in FILE should be one observation per line, non-negative integers\n\t"
+		"for each coordinate, separated by spaces.  There should be no header\n\t"
+		"or comments.\n", &cmdname[start]);
 	fprintf(fp, "\n\t"
 		"Three algorithms are implemented: Hartigan and Wong's (-w), Huang's\n\t"
 		"(-h97), and Lloyd's (-l).\n");
@@ -3170,18 +3471,18 @@ void fprint_usage(FILE *fp, const char *cmdname, void *obj)
 		"\t\tRandom initialization.  Repeat as needed with following arguments.\n"
 		"\t   METHOD\n\t\t"
 		"Set initialization method, one of:\n");
-	fprintf(fp, "\t\t  rnd       K random observations selected as seeds\n");
-	fprintf(fp, "\t\t  h97       Huang's initialization method\n");
-	fprintf(fp, "\t\t  h97rnd    Huang's initialization method randomized\n");
-	fprintf(fp, "\t\t  hd17      ...\n");
-	fprintf(fp, "\t\t  clb09     Cao et al.'s initialization method\n");
-	fprintf(fp, "\t\t  clb09rnd  Cao et al.'s initialization method randomized\n");
-	fprintf(fp, "\t\t  av07      k-modes++\n");
-	fprintf(fp, "\t\t  av07grd   greedy k-modes++\n");
+	fprintf(fp, "\t\t  rnd       K random observations selected as seeds (Default: %s).\n", opt->init_method == KMODES_INIT_RANDOM_SEEDS ? "yes" : "no");
+	fprintf(fp, "\t\t  h97       Huang's initialization method (Default: %s).\n", opt->init_method == KMODES_INIT_H97 ? "yes" : "no");
+	fprintf(fp, "\t\t  h97rnd    Huang's initialization method randomized (Default: %s).\n", opt->init_method == KMODES_INIT_H97_RANDOM ? "yes" : "no");
+	fprintf(fp, "\t\t  hd17      Huang's initialization method interpreted by de Vos (Default: %s).\n", opt->init_method == KMODES_INIT_HD17 ? "yes" : "no");
+	fprintf(fp, "\t\t  clb09     Cao et al.'s initialization method (Default: %s).\n", opt->init_method == KMODES_INIT_CLB09 ? "yes" : "no");
+	fprintf(fp, "\t\t  clb09rnd  Cao et al.'s initialization method randomized (Default: %s).\n", opt->init_method == KMODES_INIT_CLB09_RANDOM ? "yes" : "no");
+	fprintf(fp, "\t\t  av07      k-modes++ (Default: %s).\n", opt->init_method == KMODES_INIT_AV07 ? "yes" : "no");
+	fprintf(fp, "\t\t  av07grd   greedy k-modes++ (Default: %s).\n", opt->init_method == KMODES_INIT_AV07_GREEDY ? "yes" : "no");
 	fprintf(fp, "\t\t  rndp      given partition via --column, select one\n"
-		    "\t\t            observation from each partition\n");
+		    "\t\t            observation from each partition (Default: %s).\n", opt->init_method == KMODES_INIT_RANDOM_FROM_PARTITION ? "yes" : "no");
 	fprintf(fp, "\t\t  rnds      given seed observations, randomly select K;\n"
-		    "\t\t            if K seeds provided, this is deterministic\n");
+		    "\t\t            if K seeds provided, this is deterministic (Default: %s).\n", opt->init_method == KMODES_INIT_RANDOM_FROM_SET ? "yes" : "no");
 	fprintf(fp, "\t   INT1 ... INTK\n\t\tSet the (0-based) indices of the seeds.\n");
 	fprintf(fp, "\t   IFILE\n\t\tProvide file with possible seeds.\n");
 	fprintf(fp, "\t\tIf more than K seeds in IFILE, then method is 'rnds'.\n");
@@ -3199,13 +3500,18 @@ void fprint_usage(FILE *fp, const char *cmdname, void *obj)
 	fprintf(fp, "\t-t, --time SECONDS\n\t\t"
 		"Number of seconds to run initializations (Default: %.2f).\n", opt->seconds);
 	fprintf(fp, "\t-u, --update\n\t\tUse mode updates during first iteration.\n"
-		"\t\tCombine with -m to replicate klaR.\n");
+		"\t\tCombine with -i rnd to replicate klaR (Default: %s).\n", opt->update_modes ? "yes" : "no");
 
 		/**********************************************************************/
 	fprintf(fp, "\n  K selection: Perform K-selection based on previous runs.\n\n");
 	fprintf(fp, "\t-kK FILE1 FILE2 ...\n\t\t"
 		"The names of output files from various runs/methods for K=K,\n\t\t"
-		"limited by POSIX ARG_MAX (excuse unconventional option).\n");
+		"limited by POSIX ARG_MAX (excuse unconventional option).\n\t\t"
+		"For DM method, must also use -nK arguments for same values of K.\n");
+	fprintf(fp, "\t-nK FILE1 FILE2 ...\n\t\t"
+		"The names of output files from various runs/methods with NO updates\n\t\t"
+		"during the first iteration for K=K, limited by POSIX_ARG_MAX.\n\t\t"
+		"Must be used with -kK for same values of K.\n");
 	fprintf(fp, "\t-p FLOAT\n\t\t"
 		"Effective number of independent coordinates.\n");
 
