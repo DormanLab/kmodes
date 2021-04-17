@@ -151,4 +151,15 @@ struct _data {
 	unsigned int ctime;
 }; /* data */
 
+int make_options(options **opt);
+int make_data(data **data, options *opt);
+int allocate_data(data *dat, unsigned int no_data);
+int finish_make_data(data *dat, options *opt);
+int drop_empty_clusters(data *dat, options *opt);
+int fix_categories(data *dat, options *opt);
+int run_kmodes(data *dat, options *opt);
+void free_options(options *opt);
+void free_data(data *dat);
+
+
 #endif

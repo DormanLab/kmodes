@@ -15,9 +15,14 @@ set(CMAKE_C_STANDARD_REQUIRED True)
 SET(GCC_COVERAGE_COMPILE_FLAGS "-O3")
 add_definitions(${GCC_COVERAGE_COMPILE_FLAGS})
 
+add_definitions(-DMATHLIB_STANDALONE)
+
 include(FindPackageHandleStandardArgs)
 
-aux_source_directory(. DIR_SRCS)
+#aux_source_directory(. DIR_SRCS)
+set(SRCS cluster.c cmdline.c error.c io.c io_kmodes.c
+	kmodes.c matrix_exponential.c order.c r8lib.c
+		run_kmodes.c sample.c timing_mach.c)
 
 
 # following modified from RStudio's FindLibR.cmake to find R include and lib path 
@@ -105,7 +110,7 @@ link_directories(${LIBR_LIB_DIR})
 # compile option 
 add_compile_options(-D_POSIX_C_SOURCE=200112L -D_XOPEN_SOURCE=500)
 #add_compile_options(-Wall -Wextra -pedantic)
-add_executable(run_kmodes ${DIR_SRCS})
+add_executable(run_kmodes ${SRCS})
 
 # Rmath
 find_library(RMATH_LIBRARY NAMES Rmath  HINTS ${LIBR_LIB_DIR} ${_LIBR_EXECUTABLE_DIR}/lib ${_LIBR_EXECUTABLE_DIR}/lib64)

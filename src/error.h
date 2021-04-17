@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <errno.h>
-#ifdef USE_CURSES 
+#ifdef USE_CURSES
 #include <curses.h>
 #endif
 #include "error.h"
@@ -71,20 +71,20 @@ extern int global_debug_level;
 	}                                                                      \
 }
 
-#define CHECK_MEMORY(s_info, mem_lim, mem_new, file_name, fxn_name) {         \
-	errno = NO_ERROR;                                                     \
-	if ((mem_lim) && !sysinfo(&(s_info))) {                               \
-		unsigned long mem_b = ((s_info).totalram - (s_info).freeram)  \
-			* (s_info).mem_unit + (mem_new);                      \
-		if (mem_b > (mem_lim)) {                                      \
-			errno = MEMORY_USAGE_LIMIT;                           \
-			message(stderr, (file_name), (fxn_name), __LINE__,    \
-				ERROR_MSG, errno, "request for %.1"           \
-				DOUBLE_F_NFMT "Gb exceeds %.1" DOUBLE_F_NFMT  \
-				"Gb limit\n", (DOUBLE) mem_b / 1e9,           \
-				(DOUBLE) (mem_lim) / 1e9);                    \
-		}                                                             \
-	}                                                                     \
+#define CHECK_MEMORY(s_info, mem_lim, mem_new, file_name, fxn_name) {          \
+	errno = NO_ERROR;                                                      \
+	if ((mem_lim) && !sysinfo(&(s_info))) {                                \
+		unsigned long mem_b = ((s_info).totalram - (s_info).freeram)   \
+			* (s_info).mem_unit + (mem_new);                       \
+		if (mem_b > (mem_lim)) {                                       \
+			errno = MEMORY_USAGE_LIMIT;                            \
+			message(stderr, (file_name), (fxn_name), __LINE__,     \
+				ERROR_MSG, errno, "request for %.1"            \
+				DOUBLE_F_NFMT "Gb exceeds %.1" DOUBLE_F_NFMT   \
+				"Gb limit\n", (DOUBLE) mem_b / 1e9,            \
+				(DOUBLE) (mem_lim) / 1e9);                     \
+		}                                                              \
+	}                                                                      \
 }
 
 
@@ -92,33 +92,33 @@ extern int global_debug_level;
  * Print a formatted message to stderr.
  */
 #define mmessage(type, err, ...) message(stderr, __FILE__, __func__,  __LINE__, (type), (err),  __VA_ARGS__)
+
+#ifdef USE_CURSES
 /**
  * Print a formatted message to curses window.
  */
-#ifdef USE_CURSES 
 #define mwmessage(wp, type, err, ...) wmessage((wp), __FILE__, __func__,  __LINE__, (type), (err),  __VA_ARGS__)
-#endif
+
 /**
  * Print a formatted message to either stderr or curses window.
  */
-#ifdef USE_CURSES
-#define MESSAGE(wp, type, err, ...) (                                          \
+#define KMODES_MESSAGE(wp, type, err, ...) (                                   \
 	(wp) ? wmessage((wp), __FILE__, __func__, __LINE__, (type), (err),     \
 		__VA_ARGS__) :                                                 \
 	message(stderr, __FILE__, __func__, __LINE__, (type), (err),           \
 		__VA_ARGS__))
 #else
-#define MESSAGE(wp, type, err, ...) (                                          \
+#define KMODES_MESSAGE(wp, type, err, ...) (                                   \
 	message(stderr, __FILE__, __func__, __LINE__, (type), (err),           \
 		__VA_ARGS__))
 #endif
 
 #ifdef USE_CURSES
-#define MESSAGE_CONT(wp, ...) (                                                \
+#define KMODES_MESSAGE_CONT(wp, ...) (                                         \
 	(wp) ? wprintw((wp), __VA_ARGS__) :                                    \
 	fprintf(stderr, __VA_ARGS__))
 #else
-#define MESSAGE_CONT(wp, ...) (                                                \
+#define KMODES_MESSAGE_CONT(wp, ...) (                                         \
 	fprintf(stderr, __VA_ARGS__))
 #endif
 
@@ -177,9 +177,9 @@ extern int global_debug_level;
 #endif
 
 int message(FILE *, const char *, const char *, int, int, int, const char *, ...);
-#ifdef USE_CURSES 
+#ifdef USE_CURSES
 int wmessage(WINDOW *, const char *, const char *, int, int, int, const char *, ...);
-#endif 
+#endif
 
 /**
  * Conditionally call a function.
