@@ -2916,6 +2916,8 @@ const char *kmodes_init_method(int method)
 		return "random initialization from true partition";
 	else if (method == KMODES_INIT_RANDOM_FROM_SET)
 		return "random initialization from set of seeds";
+    else if (method == KMODES_INIT_ABUNDANCE)
+        return "by masked abundance";
 	else
 		return NULL;
 }/* kmodes_init_method */

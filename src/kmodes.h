@@ -75,7 +75,8 @@ enum {
 	KMODES_INIT_USER_SEEDS,		/*!< user provides K seeds */
 	KMODES_INIT_H97,		/*!< Huang1997 */
 	KMODES_INIT_CLB09,		/*!< Cao2009 */
-	KMODES_INIT_NUMBER_METHODS
+	KMODES_INIT_NUMBER_METHODS,
+    KMODES_INIT_ABUNDANCE
 };
 
 /**
@@ -119,7 +120,7 @@ int kmodes_init_from_partition(data_t **x, unsigned int n, unsigned int p, unsig
 int kmodes_init_random_from_partition(data_t **x, unsigned int n, unsigned int p, unsigned int K, data_t **seeds, unsigned int *sidx, unsigned int *id);
 int kmodes_init_random_from_set(unsigned int K, unsigned int p, unsigned int n_seedset, data_t **seeds, data_t **seedset);
 int kmodes_init_h97a(data_t **x, unsigned int n, unsigned int p, unsigned int K, data_t **seeds, unsigned int *sd_idx);
-int kmodes_init_clb09(data_t **x, unsigned int n, unsigned int p, unsigned int K, unsigned int k1, int wgt, int rdm, data_t **seeds, void *sd_idx,int type);
+int kmodes_init_clb09(data_t **x, unsigned int n, unsigned int p, unsigned int K, unsigned int k1, int wgt, int rdm, data_t **seeds, void *sd_idx, int type);
 const char *kmodes_init_method(int init_method);
 const char *kmodes_algorithm(int algorithm);
 

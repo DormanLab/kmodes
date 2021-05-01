@@ -22,7 +22,7 @@ include(FindPackageHandleStandardArgs)
 #aux_source_directory(. DIR_SRCS)
 set(SRCS cluster.c cmdline.c error.c io.c io_kmodes.c
 	kmodes.c matrix_exponential.c order.c r8lib.c
-		run_kmodes.c sample.c timing_mach.c)
+		run_kmodes.c sample.c timing_mach.c entropy.c hash.c)
 
 
 # following modified from RStudio's FindLibR.cmake to find R include and lib path 

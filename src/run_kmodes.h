@@ -12,7 +12,7 @@ typedef struct _options options;
 typedef struct _data data;
 
 #include "kmodes.h"
-
+#include "hash.h"
 /**
  * Run options.
  */
@@ -70,6 +70,7 @@ struct _options {
 	unsigned int n_sd_idx;	/*<! tmp: length of seed_idx */
 	data_t **seed_set;	/*<! available seeds */
 	unsigned int n_seed_set;/*<! number of seeds in seed set */
+    int abunk; /*<! threshold of percentage to mask */
 
 	/* output */
 	char const *ini_file;	/*<! initialization data outfile */
@@ -114,6 +115,10 @@ struct _data {
 	unsigned int *ini_seed_idx;	/*<! trial seed indices */
 	unsigned int n_init;		/*<! number of initializations done */
 	uint8_t use_ini;		/*<! using ini_* versions or not */
+    
+    /* hash table */
+    hash *seq_count;        /*<! frequency of unique sequences (hash table) */
+    unsigned int hash_length;    /*<! num of unique sequences in hash table */
 
 	/* current solution */
 	double total;			/*<! current criterion */

@@ -27,6 +27,7 @@
 #include "timing_mach.h"
 #include "matrix_exponential.h"
 #include "order.h"
+#include "entropy.h"
 
 int parse_options(options *opt, int argc, const char **argv);
 int process_arg_p(int argc, char const **argv, int *i, int j, options *opt);
@@ -102,7 +103,11 @@ int run_kmodes(data *dat, options *opt)
 	TIME_STRUCT start;		/* timing */
 
 #endif
-
+    
+    if (opt->init_method == KMODES_INIT_ABUNDANCE)
+        if ((err = mask_nhash(dat, opt->K, opt->abunk)))
+            goto CLEAR_AND_EXIT;
+        
 	/* will run k-modes: do setup */
 	if (opt->n_init && (opt->kmodes_algorithm == KMODES_HUANG
 			|| opt->kmodes_algorithm == KMODES_HARTIGAN_WONG)) {
@@ -124,7 +129,9 @@ int run_kmodes(data *dat, options *opt)
 			goto CLEAR_AND_EXIT;
 
 		/* initialization */
-		if ((err = initialize(dat, opt))) {
+        if (i && (opt->abunk != 0) && (err = perturbs(dat, opt)))
+            goto CLEAR_AND_EXIT;
+		if ((!i || opt->abunk == 0) && (err = initialize(dat, opt))) {
 			mmessage(ERROR_MSG, CUSTOM_ERROR, "%s\n",
 				kmodes_error(err));
 			goto CLEAR_AND_EXIT;
@@ -250,7 +257,9 @@ int initialize(data *dat, options *opt)
 				kmodes_init_random_from_set(opt->K,
 					dat->n_coordinates, opt->n_seed_set,
 					seeds, opt->seed_set);
-
+            else if (opt->init_method == KMODES_INIT_ABUNDANCE)
+                err = initialize_by_abundance(dat, opt->K,
+                                              opt->n_seed_set, seeds, seed_idx);
 			/* if data shuffled, don't rerandomize */
 			else if (opt->shuffle && opt->init_method
 				== KMODES_INIT_RANDOM_SEEDS)
@@ -919,6 +928,7 @@ int make_options(options **opt) {
 	(*opt)->result_files = NULL;
 	(*opt)->n_result_files = 0;
 	(*opt)->true_modes = NULL;
+    (*opt)->abunk = 0;
 
 	return NO_ERROR;
 } /* make_options */
@@ -1111,7 +1121,9 @@ int parse_options(options *opt, int argc, const char **argv)
 				opt->init_method = KMODES_INIT_RANDOM_FROM_PARTITION;
 			else if (!strcmp(argv[i+1], "rnds"))
 				opt->init_method = KMODES_INIT_RANDOM_FROM_SET;
-
+            else if (!strcmp(argv[i+1], "mskabun"))
+                opt->init_method = KMODES_INIT_ABUNDANCE;
+                
 			/* assume seed indices are being provided */
 			else if (access(argv[i+1],  F_OK) == -1) {
 
@@ -1140,6 +1152,16 @@ int parse_options(options *opt, int argc, const char **argv)
 				kmodes_init_method(opt->init_method));
 			++i;
 			break;
+        case 'a':
+            if (i + 1 == argc)
+                goto CMDLINE_ERROR;
+            opt->abunk = read_uint(argc, argv, ++i,
+                (void *)opt);
+            if (errno)
+                goto CMDLINE_ERROR;
+            debug_msg(MINIMAL <= fxn_debug, opt->quiet,
+                "Add = %u to current K clusers\n", opt->abunk);
+            break;
 		case 'n':
 			if (i + 1 == argc)
 				goto CMDLINE_ERROR;
@@ -1527,6 +1549,8 @@ int make_data(data **dat, options *opt)
 	(*dat)->best_cluster_size = NULL;
 	if ((err = allocate_data_for_k(*dat, opt->K)))
 		return err;
+    (*dat)->seq_count = NULL;
+    (*dat)->hash_length = 0;
 
 	(*dat)->best_total = INFINITY;
 	(*dat)->best_rand = -INFINITY;
@@ -3599,10 +3623,14 @@ void fprint_usage(FILE *fp, const char *cmdname, void *obj)
 		    "\t\t            observation from each partition (Default: %s).\n", opt->init_method == KMODES_INIT_RANDOM_FROM_PARTITION ? "yes" : "no");
 	fprintf(fp, "\t\t  rnds      given seed observations, randomly select K;\n"
 		    "\t\t            if K seeds provided, this is deterministic (Default: %s).\n", opt->init_method == KMODES_INIT_RANDOM_FROM_SET ? "yes" : "no");
+    fprintf(fp, "\t\t  mskabun   (Masked) initialize by abundance with perturbation (Default: %s).\n", opt->init_method == KMODES_INIT_ABUNDANCE ? "yes" : "no");
 	fprintf(fp, "\t   INT1 ... INTK\n\t\tSet the (0-based) indices of the seeds.\n");
 	fprintf(fp, "\t   IFILE\n\t\tProvide file with possible seeds.\n");
 	fprintf(fp, "\t\tIf more than K seeds in IFILE, then method is 'rnds'.\n");
 	fprintf(fp, "\t\tIf K seeds in IFILE, then initialize with these seeds.\n");
+    fprintf(fp, "\t-a \n\t\t"
+        "If initialize with -mskabun, give an INT to determine the\n\t\t"
+        "abundance after masking (a large value is suggested).\n");
 	fprintf(fp, "\t-p, --partition PFILE\n\t\t"
 		"Partition file for deterministic initialization.  Modes of given\n\t\t"
 		"partition will be initial modes.  Partition file contains space-\n\t\t"
