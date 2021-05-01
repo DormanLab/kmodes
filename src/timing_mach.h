@@ -41,7 +41,7 @@ extern double timespec_elapsed(const struct timespec *ts_start);
 #endif
 
 /* typdef POSIX clockid_t */
-//typedef int clockid_t;
+typedef int clockid_t;
 
 /* initialize mach timing */
 int timing_mach_init (void);
