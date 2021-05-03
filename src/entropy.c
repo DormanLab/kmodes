@@ -672,14 +672,8 @@ perturb_by_hd(
 	} while (!hd(nseeds[K-1], save_seed, p));	/* insist on new seed */
 
 #ifdef DEBUGGING_CODE
-	debug_msg(DEBUG_I >= fxn_debug, DEBUG_I, "Replacing %uth seed (%u) with "
-		"seed %u\n", k, save_sd_idx, nsd_idx[K-1]);
-	unsigned int j;
-	for (j = 0; j < K-1; ++j)
-		if (!hd(nseeds[j], nseeds[K-1], p))
-			break;
-	if (j < K-1)
-		return mmessage(ERROR_MSG, INTERNAL_ERROR, "Chose identical seed!\n");
+	debug_msg(DEBUG_I >= fxn_debug, DEBUG_I, "Replacing %uth seed index %u "
+		"with seed index %u\n", k, sd_idx[k], nsd_idx[K-1]);
 #endif
 
 	if (k != K - 1) {
