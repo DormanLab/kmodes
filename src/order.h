@@ -25,6 +25,7 @@
 size_t *qorder_int(const int* base, size_t numElements);
 size_t *qorder_size_t(const size_t* base, size_t numElements);
 size_t *qorder_double(const double* base, size_t numElements);
+size_t *qorder_double_rev(const double* base, size_t numElements);
 size_t *qorder_string(char* const* base, size_t numElements);
 
 /**

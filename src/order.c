@@ -180,6 +180,13 @@ int double_compare(const void* v1, const void* v2)
 	RETURN_CMP(d1, d2);
 } /* double_compare */
 
+int rev_double_compare(const void *v1, const void *v2)
+{
+	double d1 = *((const double*)v1);
+	double d2 = *((const double*)v2);
+	REV_RETURN_CMP(d1, d2);
+} /* rev_double_compare */
+
 /**
  * A #ComparisonFunc-compliant function for two strings.
  * @param v1 pointer to first string
@@ -223,6 +230,11 @@ size_t* qorder_double(const double* base, size_t numElements)
 {
 	return order(base, numElements, sizeof(double), double_compare);
 } /* qorder_double */
+
+size_t *qorder_double_rev(const double *base, size_t numElements)
+{
+	return order(base, numElements, sizeof(double), rev_double_compare);
+} /* qorder_double_rev */
 
 /**
  * Wrapper for #order() to produce index order of string array.

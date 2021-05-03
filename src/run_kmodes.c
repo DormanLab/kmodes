@@ -104,9 +104,9 @@ int run_kmodes(data *dat, options *opt)
 
 #endif
     
-    if (opt->init_method == KMODES_INIT_ABUNDANCE)
-        if ((err = mask_nhash(dat, opt->K, opt->abunk)))
-            goto CLEAR_AND_EXIT;
+	if (opt->init_method == KMODES_INIT_ABUNDANCE
+				&& (err = mask_nhash(dat, opt)))
+		goto CLEAR_AND_EXIT;
         
 	/* will run k-modes: do setup */
 	if (opt->n_init && (opt->kmodes_algorithm == KMODES_HUANG
@@ -129,14 +129,21 @@ int run_kmodes(data *dat, options *opt)
 			goto CLEAR_AND_EXIT;
 
 		/* initialization */
-        if (i && (opt->abunk != 0) && (err = perturbs(dat, opt)))
-            goto CLEAR_AND_EXIT;
-		if ((!i || opt->abunk == 0) && (err = initialize(dat, opt))) {
+		if (opt->init_method == KMODES_INIT_ABUNDANCE) {
+			if (!opt->resample_sites || !(i % opt->resample_sites)) {
+				if ((err = initialize(dat, opt))) {
+					mmessage(ERROR_MSG, CUSTOM_ERROR,
+						"%s\n", kmodes_error(err));
+					goto CLEAR_AND_EXIT;
+				}
+			} else {
+				perturb(dat, opt);
+			}
+		} else if ((err = initialize(dat, opt))) {
 			mmessage(ERROR_MSG, CUSTOM_ERROR, "%s\n",
-				kmodes_error(err));
+							kmodes_error(err));
 			goto CLEAR_AND_EXIT;
 		}
-
 		/* run one of k-modes algorithms */
 		if (opt->kmodes_algorithm == KMODES_HUANG) {
 			dat->total = kmodes_huang(dat->dmat,
@@ -177,7 +184,6 @@ int run_kmodes(data *dat, options *opt)
 			if (err != KMODES_EXCEED_ITER_WARNING)
 				goto CLEAR_AND_EXIT;
 		}
-
 		/* counts function call time ... oh well */
 #ifdef MATHLIB_STANDALONE
 		write_status(dat, opt, fps, fpi, i, &start);
@@ -257,9 +263,13 @@ int initialize(data *dat, options *opt)
 				kmodes_init_random_from_set(opt->K,
 					dat->n_coordinates, opt->n_seed_set,
 					seeds, opt->seed_set);
-            else if (opt->init_method == KMODES_INIT_ABUNDANCE)
-                err = initialize_by_abundance(dat, opt->K,
-                                              opt->n_seed_set, seeds, seed_idx);
+			else if (opt->init_method == KMODES_INIT_ABUNDANCE && !j)
+				err = initialize_by_abundance(dat, opt->K,
+					opt->n_seed_set, seeds, seed_idx);
+/*
+			else if (opt->init_method == KMODES_INIT_ABUNDANCE && j)
+				err = perturb(dat, opt);
+ */
 			/* if data shuffled, don't rerandomize */
 			else if (opt->shuffle && opt->init_method
 				== KMODES_INIT_RANDOM_SEEDS)
@@ -320,7 +330,7 @@ int initialize(data *dat, options *opt)
 				return mmessage(ERROR_MSG, INVALID_USER_INPUT,
 					"Invalid algorithm in ini-kmodes.\n");
 
-			if (opt->quiet > MINIMAL)
+			//if (opt->quiet > MINIMAL)
 				fprintf(stdout, "Inner initialization %*u of "
 					"%u: %f (%f)\n", (int)
 					(log10(opt->n_inner_init) + 1), j,
@@ -928,7 +938,8 @@ int make_options(options **opt) {
 	(*opt)->result_files = NULL;
 	(*opt)->n_result_files = 0;
 	(*opt)->true_modes = NULL;
-    (*opt)->abunk = 0;
+	(*opt)->abunk = 0;
+	(*opt)->resample_sites = 0;
 
 	return NO_ERROR;
 } /* make_options */
@@ -1121,11 +1132,34 @@ int parse_options(options *opt, int argc, const char **argv)
 				opt->init_method = KMODES_INIT_RANDOM_FROM_PARTITION;
 			else if (!strcmp(argv[i+1], "rnds"))
 				opt->init_method = KMODES_INIT_RANDOM_FROM_SET;
-            else if (!strcmp(argv[i+1], "mskabun"))
-                opt->init_method = KMODES_INIT_ABUNDANCE;
+			else if (!strcmp(argv[i+1], "mskabun")) {
+				opt->init_method = KMODES_INIT_ABUNDANCE;
+				++i;
+				if (i + 1 == argc || argv[i + 1][0] == '-')
+					goto CMDLINE_ERROR;
+				opt->abunk = read_uint(argc, argv, i + 1, (void *)opt);
+				if (errno)
+					goto CMDLINE_ERROR;
+				if (opt->quiet > QUIET)
+					mmessage(INFO_MSG, NO_ERROR, "Desired "
+						"number of masked abundances "
+							">1: %u\n", opt->abunk);
+				if (i + 2 < argc && argv[i + 2][0] != '-') {
+					++i;
+					opt->resample_sites = read_uint(argc,
+						argv, i + 1, (void *)opt);
+					if (errno)
+						goto CMDLINE_ERROR;
+					if (opt->quiet > QUIET)
+						mmessage(INFO_MSG, NO_ERROR,
+							"Number initializations"
+							" between site resample"
+							": %u",
+							opt->resample_sites);
+				}
                 
 			/* assume seed indices are being provided */
-			else if (access(argv[i+1],  F_OK) == -1) {
+			} else if (access(argv[i+1], F_OK) == -1) {
 
 				opt->init_method = KMODES_INIT_USER_SEEDS;
 
@@ -1152,16 +1186,6 @@ int parse_options(options *opt, int argc, const char **argv)
 				kmodes_init_method(opt->init_method));
 			++i;
 			break;
-        case 'a':
-            if (i + 1 == argc)
-                goto CMDLINE_ERROR;
-            opt->abunk = read_uint(argc, argv, ++i,
-                (void *)opt);
-            if (errno)
-                goto CMDLINE_ERROR;
-            debug_msg(MINIMAL <= fxn_debug, opt->quiet,
-                "Add = %u to current K clusers\n", opt->abunk);
-            break;
 		case 'n':
 			if (i + 1 == argc)
 				goto CMDLINE_ERROR;
@@ -1529,6 +1553,7 @@ int make_data(data **dat, options *opt)
 
 	(*dat)->data = NULL;
 	(*dat)->dmat = NULL;
+	(*dat)->masked_dmat = NULL;
 	(*dat)->n_observations = 0;
 	(*dat)->n_coordinates = 0;
 	(*dat)->n_categories = NULL;
@@ -1549,8 +1574,11 @@ int make_data(data **dat, options *opt)
 	(*dat)->best_cluster_size = NULL;
 	if ((err = allocate_data_for_k(*dat, opt->K)))
 		return err;
-    (*dat)->seq_count = NULL;
-    (*dat)->hash_length = 0;
+
+	(*dat)->seq_count = NULL;
+	(*dat)->hash_length = 0;
+	(*dat)->mask = NULL;
+	(*dat)->entropy_order = NULL;
 
 	(*dat)->best_total = INFINITY;
 	(*dat)->best_rand = -INFINITY;
@@ -1705,6 +1733,7 @@ void free_data_for_k(data *dat, options *opt)
 		free(dat->best_modes);
 		dat->best_modes = NULL;
 	}
+
 } /* free_data_for_k */
 
 
@@ -2099,7 +2128,7 @@ int simulate_data(data *dat, options *opt)
 	dat->data = malloc(dat->n_coordinates * dat->n_observations
 		* sizeof *dat->data);
 	dat->n_categories = calloc(dat->n_coordinates,
-		sizeof *dat->n_categories);
+		sizeof(*dat->n_categories));
 	opt->sim_cluster = malloc(dat->n_observations
 		* sizeof *opt->sim_cluster);
 
@@ -2114,9 +2143,10 @@ int simulate_data(data *dat, options *opt)
 	for (k = 0; k < opt->sim_K; ++k) {
 		opt->sim_modes[k] = tmp;
 		tmp += dat->n_coordinates;
-		dat->n_categories[k] = opt->sim_n_categories;
-		dat->cluster_size[k] = 0;
 	}
+
+	for (size_t i = 0; i < dat->n_coordinates; ++i)
+		dat->n_categories[i] = opt->sim_n_categories;
 
 	/* allocate instantaneous rate matrix */
 	for (size_t i = 0; i < dim; ++i)
@@ -2332,7 +2362,7 @@ int finish_make_data(data *dat, options *opt)
 {
 	int fxn_debug = ABSOLUTE_SILENCE;
 
-	dat->dmat = malloc(dat->n_observations * sizeof *dat->dmat);
+	dat->dmat = malloc(dat->n_observations * sizeof(*dat->dmat));
 	data_t *rptr = dat->data;
 	for (unsigned int i = 0; i < dat->n_observations; i++) {
 		dat->dmat[i] = rptr;
@@ -3502,6 +3532,15 @@ void free_data(data *dat)
 			free(dat->data);
 		if (dat->n_categories)
 			free(dat->n_categories);
+		if (dat->masked_dmat) {
+			free(dat->masked_dmat[0]);
+			free(dat->masked_dmat);
+		}
+		if (dat->entropy_order)
+			free(dat->entropy_order);
+		if (dat->mask)
+			free(dat->mask);
+		/* there is a lot that has not been freed: hash */
 		free(dat);
 	}
 } /* free_data */
@@ -3611,26 +3650,24 @@ void fprint_usage(FILE *fp, const char *cmdname, void *obj)
 		"\t\tRandom initialization.  Repeat as needed with following arguments.\n"
 		"\t   METHOD\n\t\t"
 		"Set initialization method, one of:\n");
-	fprintf(fp, "\t\t  rnd       K random observations selected as seeds (Default: %s).\n", opt->init_method == KMODES_INIT_RANDOM_SEEDS ? "yes" : "no");
-	fprintf(fp, "\t\t  h97       Huang's initialization method (Default: %s).\n", opt->init_method == KMODES_INIT_H97 ? "yes" : "no");
-	fprintf(fp, "\t\t  h97rnd    Huang's initialization method randomized (Default: %s).\n", opt->init_method == KMODES_INIT_H97_RANDOM ? "yes" : "no");
-	fprintf(fp, "\t\t  hd17      Huang's initialization method interpreted by de Vos (Default: %s).\n", opt->init_method == KMODES_INIT_HD17 ? "yes" : "no");
-	fprintf(fp, "\t\t  clb09     Cao et al.'s initialization method (Default: %s).\n", opt->init_method == KMODES_INIT_CLB09 ? "yes" : "no");
-	fprintf(fp, "\t\t  clb09rnd  Cao et al.'s initialization method randomized (Default: %s).\n", opt->init_method == KMODES_INIT_CLB09_RANDOM ? "yes" : "no");
-	fprintf(fp, "\t\t  av07      k-modes++ (Default: %s).\n", opt->init_method == KMODES_INIT_AV07 ? "yes" : "no");
-	fprintf(fp, "\t\t  av07grd   greedy k-modes++ (Default: %s).\n", opt->init_method == KMODES_INIT_AV07_GREEDY ? "yes" : "no");
-	fprintf(fp, "\t\t  rndp      given partition via --column, select one\n"
-		    "\t\t            observation from each partition (Default: %s).\n", opt->init_method == KMODES_INIT_RANDOM_FROM_PARTITION ? "yes" : "no");
-	fprintf(fp, "\t\t  rnds      given seed observations, randomly select K;\n"
-		    "\t\t            if K seeds provided, this is deterministic (Default: %s).\n", opt->init_method == KMODES_INIT_RANDOM_FROM_SET ? "yes" : "no");
-    fprintf(fp, "\t\t  mskabun   (Masked) initialize by abundance with perturbation (Default: %s).\n", opt->init_method == KMODES_INIT_ABUNDANCE ? "yes" : "no");
+	fprintf(fp, "\t\t  rnd          K random observations selected as seeds (Default: %s).\n", opt->init_method == KMODES_INIT_RANDOM_SEEDS ? "yes" : "no");
+	fprintf(fp, "\t\t  h97          Huang's initialization method (Default: %s).\n", opt->init_method == KMODES_INIT_H97 ? "yes" : "no");
+	fprintf(fp, "\t\t  h97rnd       Huang's initialization method randomized (Default: %s).\n", opt->init_method == KMODES_INIT_H97_RANDOM ? "yes" : "no");
+	fprintf(fp, "\t\t  hd17         Huang's initialization method interpreted by de Vos (Default: %s).\n", opt->init_method == KMODES_INIT_HD17 ? "yes" : "no");
+	fprintf(fp, "\t\t  clb09        Cao et al.'s initialization method (Default: %s).\n", opt->init_method == KMODES_INIT_CLB09 ? "yes" : "no");
+	fprintf(fp, "\t\t  clb09rnd     Cao et al.'s initialization method randomized (Default: %s).\n", opt->init_method == KMODES_INIT_CLB09_RANDOM ? "yes" : "no");
+	fprintf(fp, "\t\t  av07         k-modes++ (Default: %s).\n", opt->init_method == KMODES_INIT_AV07 ? "yes" : "no");
+	fprintf(fp, "\t\t  av07grd      greedy k-modes++ (Default: %s).\n", opt->init_method == KMODES_INIT_AV07_GREEDY ? "yes" : "no");
+	fprintf(fp, "\t\t  rndp         given partition via --column, select one\n"
+		    "\t\t               observation from each partition (Default: %s).\n", opt->init_method == KMODES_INIT_RANDOM_FROM_PARTITION ? "yes" : "no");
+	fprintf(fp, "\t\t  rnds         given seed observations, randomly select K;\n"
+		    "\t\t               if K seeds provided, this is deterministic (Default: %s).\n", opt->init_method == KMODES_INIT_RANDOM_FROM_SET ? "yes" : "no");
+	fprintf(fp, "\t\t  mskabun INT  Initialize by (masked) abundance with perturbation (Default: %s).\n", opt->init_method == KMODES_INIT_ABUNDANCE ? "yes" : "no");
+	fprintf(fp, "\t\t               The number of masked abundances exceeding 1 (Default: %d)\n", opt->abunk);
 	fprintf(fp, "\t   INT1 ... INTK\n\t\tSet the (0-based) indices of the seeds.\n");
 	fprintf(fp, "\t   IFILE\n\t\tProvide file with possible seeds.\n");
 	fprintf(fp, "\t\tIf more than K seeds in IFILE, then method is 'rnds'.\n");
 	fprintf(fp, "\t\tIf K seeds in IFILE, then initialize with these seeds.\n");
-    fprintf(fp, "\t-a \n\t\t"
-        "If initialize with -mskabun, give an INT to determine the\n\t\t"
-        "abundance after masking (a large value is suggested).\n");
 	fprintf(fp, "\t-p, --partition PFILE\n\t\t"
 		"Partition file for deterministic initialization.  Modes of given\n\t\t"
 		"partition will be initial modes.  Partition file contains space-\n\t\t"

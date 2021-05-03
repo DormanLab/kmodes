@@ -38,8 +38,6 @@ struct _options {
 
 	/* run conditions */
 	kmodes_options *kopt;	/*<! kmodes run options passed to algorithms */
-	unsigned int n_init;	/*<! number of random initializations */
-	unsigned int n_inner_init;	/*<! number of random initializations */
 	unsigned int n_max_iter;/*<! max. number of iterations */
 	unsigned long seed;	/*<! random number seed [srand()] */
 	int kmodes_algorithm;	/*<! run Lloyd's, Huang's or HW k-modes */
@@ -61,6 +59,8 @@ struct _options {
 	unsigned int n_bootstrap;	/*<! no. of bootstraps in K-select */
 
 	/* initialization */
+	unsigned int n_init;	/*<! number of random initializations */
+	unsigned int n_inner_init;	/*<! number of "inner" initializations */
 	int init_method;	/*<! initialization method to use */
 	unsigned int *seed_idx;	/*<! user-provided seed indices */
 	char const *pfile;	/*<! partition file */
@@ -70,7 +70,8 @@ struct _options {
 	unsigned int n_sd_idx;	/*<! tmp: length of seed_idx */
 	data_t **seed_set;	/*<! available seeds */
 	unsigned int n_seed_set;/*<! number of seeds in seed set */
-    int abunk; /*<! threshold of percentage to mask */
+	int abunk;		/*<! number of masked abundance>1 */
+	unsigned int resample_sites;	/*<! resample sites every int inits */
 
 	/* output */
 	char const *ini_file;	/*<! initialization data outfile */
@@ -102,6 +103,7 @@ struct _options {
 struct _data {
 	data_t *data;			/*<! data */
 	data_t **dmat;			/*<! data as matrix */
+	data_t **masked_dmat;		/*<! masked copy of data */
 	unsigned int n_observations;	/*<! number of observations */
 	unsigned int n_coordinates;	/*<! number of coordinates (all categorical) */
 	data_t *n_categories;		/*<! number of categories in each coordinate */
@@ -115,10 +117,15 @@ struct _data {
 	unsigned int *ini_seed_idx;	/*<! trial seed indices */
 	unsigned int n_init;		/*<! number of initializations done */
 	uint8_t use_ini;		/*<! using ini_* versions or not */
+	unsigned int n_masked;		/*<! number of masked sites */
     
-    /* hash table */
-    hash *seq_count;        /*<! frequency of unique sequences (hash table) */
-    unsigned int hash_length;    /*<! num of unique sequences in hash table */
+	/* hash table */
+	hash *seq_count;		/*<! frequency of unique sequences (hash table) */
+	unsigned int hash_length;	/*<! num of unique sequences in hash table */
+	double *entropy;		/*<! per-coordinate entropy */
+	double total_entropy;		/*<! sum of entropy */
+	size_t *entropy_order;		/*<! coordinates sorted by entropy */
+	unsigned int *mask;		/*<! for masked abundance */
 
 	/* current solution */
 	double total;			/*<! current criterion */

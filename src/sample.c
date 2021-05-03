@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
+#include <limits.h>
 
 #include "sample.h"
 #include "error.h"
@@ -19,6 +21,70 @@ void sample(unsigned int N, unsigned int n, unsigned int *idx)
 			idx[m++] = t++;
 	}
 } /* sample */
+
+/**
+ * Sample k objects without replacement from n objects with weights.
+ *
+ * @param n	number of objects
+ * @param k	requested sample size
+ * @param w	weights
+ * @param idx	indices of selected objects
+ * @param indic	indicator instead of indices (UINT_MAX if not active)
+ * @return	error status
+ */
+int heap_sample(unsigned int n, unsigned int k, double *w, unsigned int *idx, unsigned int indic)
+{
+	if (log2(n) > 31)
+		return mmessage(ERROR_MSG, INTERNAL_ERROR, "Sample size exceeded.");
+
+	/* setup heap */
+	unsigned int d = 1 << (int)ceil(log2(n));
+	double *heap = calloc(2*d, sizeof(*heap));
+
+	if (!heap)
+		return mmessage(ERROR_MSG, MEMORY_ALLOCATION, "heap");
+
+	memcpy(&heap[d], w, n*sizeof(*w));
+	for (unsigned int i = d - 1; i > 0; --i)
+		heap[i] = heap[2*i] + heap[2*i + 1];
+
+	unsigned int offset = d;
+	unsigned int j = 0;
+
+	/* sample k objects */
+	while (j < k) {
+		double r = rand() / (RAND_MAX + 1.);
+		double p = heap[1] * r, left;
+		unsigned int i = 1, chosen_idx;
+
+		while (i < offset) {
+			i *= 2;
+			left = heap[i];
+			if (p > left) {
+				p -= left;
+				i += 1;
+			}
+		}
+		chosen_idx = i - offset;
+		if (indic == UINT_MAX) {
+			idx[j++] = chosen_idx;
+		} else {
+			idx[chosen_idx] = indic;
+			++j;
+		}
+
+		/* reset heap for w[chosen_idx] = 0 */
+		i = d + chosen_idx;
+		heap[i] = 0;
+		while (i > 0) {
+			i /= 2;
+			heap[i] = heap[2*i] + heap[2*i + 1];
+		}
+	}
+	
+	free(heap);
+	return NO_ERROR;
+} /* heap_sample */
 
 /**
  * Sample n from N without replacement.  See Vitter, J. S. (1987) ``An Efficient
