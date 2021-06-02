@@ -72,6 +72,9 @@ struct _options {
 	unsigned int n_seed_set;/*<! number of seeds in seed set */
 	int abunk;		/*<! number of masked abundance>1 */
 	unsigned int resample_sites;	/*<! resample sites every int inits */
+    int perturb_selection; /*<! perturbation selection method */
+    unsigned int n_perturb;       /*<! perturb this many seeds when re-initialize */
+    unsigned int inner_perturb; /*<! 2 settings for no. of perturbations per initialization */
 
 	/* output */
 	char const *ini_file;	/*<! initialization data outfile */

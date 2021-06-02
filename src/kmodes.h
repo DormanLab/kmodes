@@ -80,6 +80,13 @@ enum {
 };
 
 /**
+ * K-modes perturbation selection method
+ */
+enum {
+    KMODES_PERTURB_HD, // Hamming distance
+};
+
+/**
  * K-modes weighting methods
  */
 enum {
@@ -133,7 +140,10 @@ static inline unsigned int hd_fast(data_t *x, data_t *y, unsigned int p)
 	return d;
 } /* hd_fast */
 
-
+int kmodes_init_h97(data_t **x, unsigned int n, unsigned int p, unsigned int K, unsigned int k1, int wgt, int rdm, data_t **seeds, unsigned int *sd_idx);
+int kmodes_init_hd17(data_t **x, unsigned int n, unsigned int p, unsigned int K, unsigned int k1, int wgt, data_t **seeds, unsigned int *sd_idx);
+int kmodes_init_av07(data_t **X, unsigned int n, unsigned int p, unsigned int K, unsigned int k1, int weight, data_t **seeds, unsigned int *sd_idx, int greedy);
+int kmodes_init_clb09(data_t **x, unsigned int n, unsigned int p, unsigned int K, unsigned int k1, int wgt, int rdm, data_t **seeds, void *sd_idx, int type);
 
 /*
 void optra(double **a, SIZE_T m, SIZE_T n, double **c, SIZE_T k, unsigned int *ic1,
