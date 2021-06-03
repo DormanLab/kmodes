@@ -2112,10 +2112,10 @@ int fix_categories(data *dat, options *opt)
 			continue;
 		}
 		mmessage(WARNING_MSG, NO_ERROR, "Coordinate %u uses only %u "
-			"categories, but has %u categories.  To get correct "
-			"category counts, use double arguments to -o and maybe "
-			"-m, and then run with corrected files.\n", j,
-			cnt, dat->n_categories[j]);
+			"of the 0 .. %u available categories.  To get correct "
+			"category counts (and speed up subsequent runs), use "
+			"double arguments to -f and maybe -m, and then run with"
+			" corrected files.\n", j, cnt, dat->n_categories[j]);
 		dat->n_categories[j] = cnt;
 		for (i = 0; i < dat->n_observations; ++i)
 			dat->data[dat->n_coordinates*i + j]

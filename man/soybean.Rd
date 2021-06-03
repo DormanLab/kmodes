@@ -6,8 +6,9 @@
   This is the small soybean dataset from the UCI repository.
   There is more information available at 
   https://archive.ics.uci.edu/ml/datasets/soybean+(small).
-  The data were already encoded in integer format, but the
-  last column with the "true" clusters has been converted to
+  The data have been modified to use contiguous integers
+  starting from 0 to encode the categories, and the last
+  column with the "true" clusters has been converted to
   nonnegative integers and placed in the first column.
 }
 \usage{soybean}
