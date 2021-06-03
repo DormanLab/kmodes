@@ -8,7 +8,6 @@
 #include <limits.h>
 
 #include "run_kmodes.h"
-#include "array.h"
 #include "error.h"
 #include "io.h"
 #include "math.h"
@@ -79,7 +78,9 @@ static int entropy_per_coordinate(data *dat)
 		return mmessage(ERROR_MSG, MEMORY_ALLOCATION, "data::entropy");
 	dat->total_entropy = 0;
 
+#ifdef DEBUGGING_CODE
 	fprintf(stderr, "Entropy: ");
+#endif
 	for (j = 0; j < p; ++j) {
 		data_t tmp[n];
 
@@ -88,9 +89,13 @@ static int entropy_per_coordinate(data *dat)
 
 		dat->entropy[j] = entropy(tmp, max_ncat, n);
 		dat->total_entropy += dat->entropy[j];
+#ifdef DEBUGGING_CODE
 		fprintf(stderr, "%lf ", dat->entropy[j]);
+#endif
 	}
+#ifdef DEBUGGING_CODE
 	fprintf(stderr, "\n");
+#endif
 
 	return NO_ERROR;
 } /* entropy_per_coordinate */
@@ -119,10 +124,12 @@ static int mask_idx(double *s_entropy, unsigned int p, double percentage, size_t
 		(*indices)[i] = tmp;
 	}
 	*/
+#ifdef DEBUGGING_CODE
 	fprintf(stderr, "Ranked sites: ");
 	for (unsigned int j = 0; j < p; ++j)
 		fprintf(stderr, "%zu ", (*indices)[j]);
 	fprintf(stderr, "\n");
+#endif
 //	free(pos);
 
 	return NO_ERROR;
@@ -207,7 +214,6 @@ int mask_nhash(data *dat, options *opt)
 	int abunk = opt->abunk;
 	unsigned int p = dat->n_coordinates, n = dat->n_observations;
 	unsigned int i, j, m;
-	data_t **x = dat->dmat;
 	
 	if ((err = entropy_per_coordinate(dat)))
 		return err;
@@ -234,10 +240,12 @@ int mask_nhash(data *dat, options *opt)
 	// use binary search to find out the number of masked position
 	dat->n_masked = binary_search(dat->masked_dmat, dat,
 					dat->entropy_order, 0, p - 1, K, abunk);
+#ifdef DEBUGGING_CODE
 	fprintf(stderr, "Masked sites (%u): ", dat->n_masked);
 	for (j = 0; j < dat->n_masked; ++j)
 		fprintf(stderr, "%zu ", dat->entropy_order[j]);
 	fprintf(stderr, "\n");
+#endif
 
 	/* store index of reads for all unique sequences */
 	for (i = 0; i < n; ++i)
@@ -249,12 +257,14 @@ int mask_nhash(data *dat, options *opt)
 
 	m = 0;
 	for (hash *s = dat->seq_count; s != NULL; s = s->hh.next, ++m) {
+#ifdef DEBUGGING_CODE
 		fprintf(stderr, "Abundance[%zu(%u)=", s->idx, m);
 		for (unsigned int j = 0; j < p; ++j)
 			if (dat->entropy_order[j] < dat->n_masked)
 				fprintf(stderr, "[%d]", dat->masked_dmat[s->idx][j]);
 			else
 				fprintf(stderr, "%d", dat->masked_dmat[s->idx][j]);
+#endif
 		if (opt->true_modes) {
 			unsigned int min_hd = UINT_MAX, chosen_k = 0;
 			for (unsigned int k = 0; k < opt->true_K; ++k) {
@@ -272,9 +282,13 @@ int mask_nhash(data *dat, options *opt)
 					chosen_k = k;
 				}
 			}
+#ifdef DEBUGGING_CODE
 			fprintf(stderr, " HD=%u%s from true mode %u", min_hd, !min_hd?"***":"", chosen_k);
+#endif
 		}
+#ifdef DEBUGGING_CODE
 		fprintf(stderr, "]: %u\n", s->count);
+#endif
 	}
 	
 	dat->mask = calloc(dat->n_coordinates, sizeof(*dat->mask));
@@ -299,8 +313,6 @@ int randomize_masked_hash(data *dat)
 	int err;
 	unsigned int n = dat->n_observations, p = dat->n_coordinates, i, j;
 	unsigned int n_unmasked = p - dat->n_masked;
-	unsigned int n_masked = p, k = 0;
-	double r, dsum, total = dat->total_entropy;
 
 	/* reset */
 #ifdef DEBUGGING_CODE
@@ -316,7 +328,7 @@ int randomize_masked_hash(data *dat)
 #ifdef DEBUGGING_CODE
 	debug_msg(fxn_debug >= DEBUG_I, DEBUG_I, "Mask:");
 	for (j = 0; j < p; ++j)
-		debug_msg_cont(fxn_debug >= DEBUG_I, DEBUG_I, " %u=%f (%d)", dat->entropy_order[j], dat->entropy[dat->entropy_order[j]], dat->mask[dat->entropy_order[j]]);
+		debug_msg_cont(fxn_debug >= DEBUG_I, DEBUG_I, " %zu=%f (%d)", dat->entropy_order[j], dat->entropy[dat->entropy_order[j]], dat->mask[dat->entropy_order[j]]);
 	debug_msg_cont(fxn_debug >= DEBUG_I, DEBUG_I, "\n");
 #endif
 
@@ -333,7 +345,7 @@ int randomize_masked_hash(data *dat)
 			if (!dat->mask[j])
 				continue;
 #ifdef DEBUGGING_CODE
-			fprintf(stderr, " %zu", j);
+			fprintf(stderr, " %u", j);
 #endif
 			/* mask chosen position */
 			for (i = 0; i < n; ++i)

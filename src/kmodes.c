@@ -817,9 +817,11 @@ static inline double cost_to_join(size_t **nkt, data_t *a, data_t *c, unsigned i
 		 */
 		} else if (nkt[j][(int) c[j]] == nkt[j][(int) a[j]] + 1) {
 // [TODO] almost certainly superfluous?			&& c[j] != a[j])
-			if (c[j] == a[j])	/* [TODO] delete if not used */
+/*
+			if (c[j] == a[j])
 				exit(mmessage(ERROR_MSG, INTERNAL_ERROR,
 						"should not be possible!"));
+ */
 			de += 1.;
 		}
 
@@ -839,15 +841,17 @@ static inline double weighted_cost_to_join(size_t **nkt, data_t *a, data_t *c,
 {
 	double de = 0.;
 
+#ifdef __KMODES_DEBUGGING__
 	if (!nt)
 		exit(mmessage(ERROR_MSG, INTERNAL_ERROR, "not possible"));
+#endif
 
 	for (unsigned int j = 0; j < p; ++j) {
 		if (fxn_debug) {
 			debug_msg(fxn_debug, 0, "%zu (%u):", j, a[j]);
 			for (unsigned int l = 0; l < __nj[j]; ++l)
-				fprintf(stderr, " %zu", nkt[j][l]);
-			fprintf(stderr, " ");
+				debug_msg_cont(fxn_debug, 0, " %zu", nkt[j][l]);
+			debug_msg_cont(fxn_debug, 0, " ");
 		}
 
 		/* mode unchanged: add character less frequent than mode (5) */
@@ -965,10 +969,10 @@ static inline double weighted_cost_of_membership(size_t **nkt, data_t *a,
 	double de = 0.;
 	for (unsigned int j = 0; j < p; ++j) {
 		if (fxn_debug) {
-			fprintf(stderr, "%u (%u):", j, a[j]);
+			debug_msg(QUIET >= fxn_debug, 0, "%u (%u):", j, a[j]);
 			for (unsigned int l = 0; l < __nj[j]; ++l)
-				fprintf(stderr, " %zu", nkt[j][l]);
-			fprintf(stderr, " ");
+				debug_msg_cont(QUIET >= fxn_debug, 0, " %zu", nkt[j][l]);
+			debug_msg_cont(QUIET >= fxn_debug, 0, " ");
 		}
 
 		/* removing non-modal character in ith observation */
@@ -1009,12 +1013,15 @@ double compute_criterion(data_t **x, data_t **seeds, unsigned int *ic,
 	double *criterion, unsigned int K, unsigned int n, unsigned int p, int wgt)
 {
 	double *lcriterion;
+
 	if (!criterion) {
 		if (!__criterion) {
 			__criterion = malloc(K * sizeof *__criterion);
+#ifdef __KMODES_DEBUGGING__
 			if (!__criterion)
 				exit(mmessage(ERROR_MSG, MEMORY_ALLOCATION,
 					"__criterion"));
+#endif
 		}
 		lcriterion = __criterion;
 	} else
@@ -1052,9 +1059,11 @@ static inline double compute_cost(size_t ***nkjc, double *cost, data_t **c,
 {
 	double tcost = 0;
 
+#ifdef __KMODES_DEBUGGING__
 	if (!__nj)
 		exit(mmessage(ERROR_MSG, INTERNAL_ERROR, "__nj = %p; __njc = "
 			"%p!\n", (void *)__nj, (void *)__njc));
+#endif
 
 	for (unsigned int k = 0; k < K; ++k)
 		cost[k] = 0.;
@@ -1088,9 +1097,11 @@ static inline double compute_weighted_cost(size_t ***nkjc, double *cost,
 {
 	double tcost = 0;
 
+#ifdef __KMODES_DEBUGGING__
 	if (!__nj || !__njc)
 		exit(mmessage(ERROR_MSG, INTERNAL_ERROR, "__nj = %p; __njc = "
 			"%p!\n", (void *)__nj, (void *)__njc));
+#endif
 
 	for (unsigned int k = 0; k < K; ++k) {
 		for (unsigned int j = 0; j < p; ++j) {
@@ -1822,11 +1833,13 @@ static inline double hd_min(data_t *x, data_t *y, unsigned int p, int wgt,
  */
 static inline double hd_coord(data_t *x, data_t *y, unsigned int j, int wgt)
 {
+#ifdef __KMODES_DEBUGGING__
 	if (wgt && !__njc) {
 		mmessage(ERROR_MSG, INTERNAL_ERROR, "function called without "
 			"setup of __njc");
 		exit(EXIT_FAILURE);
 	}
+#endif
 
 	return( x[j] == y[j] ? 0. : wgt
 		? (double) (__njc[j][(int) x[j]] + __njc[j][(int) y[j]])
@@ -1914,9 +1927,9 @@ int kmodes_init(data_t **x, unsigned int n, unsigned int p, unsigned int k,
 	} else if (method == KMODES_INIT_HD17) {
 		return kmodes_init_hd17(x, n, p, k, k1, weight, seeds, sidx);
 	} else if (method == KMODES_INIT_CLB09) {
-		return kmodes_init_clb09(x, n, p, k, k1, weight, 0, seeds, sidx,UNSINGED_INT);
+		return kmodes_init_clb09(x, n, p, k, k1, weight, 0, seeds, sidx,UNSIGNED_INT);
 	} else if (method == KMODES_INIT_CLB09_RANDOM) {
-		return kmodes_init_clb09(x, n, p, k, k1, weight, 1, seeds, sidx,UNSINGED_INT);
+		return kmodes_init_clb09(x, n, p, k, k1, weight, 1, seeds, sidx,UNSIGNED_INT);
 	} else if (method == KMODES_INIT_AV07) {
 		return kmodes_init_av07(x, n, p, k, k1, weight, seeds, sidx, 0);
 	} else if (method == KMODES_INIT_AV07_GREEDY) {
@@ -2369,7 +2382,7 @@ int kmodes_init_hd17(data_t **x, unsigned int n, unsigned int p, unsigned int K,
  */
 int allocate_density(data_t **x, unsigned int n, unsigned int p)
 {
-	MAKE_1ARRAY(__dens, n);
+	__dens = malloc(n * sizeof(*__dens));
 	if (!__dens)
 		return mmessage(ERROR_MSG, MEMORY_ALLOCATION, "__dens");
 
@@ -2394,7 +2407,7 @@ int allocate_density(data_t **x, unsigned int n, unsigned int p)
  */
 int allocate_distance(unsigned int n)
 {
-	MAKE_1ARRAY(__dis, n);
+	__dis = malloc(n * sizeof(*__dis));
 	return !__dis ? MEMORY_ALLOCATION : NO_ERROR;
 } /* allocate_distance */
 
@@ -2455,7 +2468,7 @@ int kmodes_init_clb09(data_t **x, unsigned int n, unsigned int p, unsigned int K
 		memcpy(seeds[k1++], x[idx], p * sizeof **x);
 		if (sd_idx && (type == _SIZE_T_P))
 			sd_idx_s[0] = idx;
-		else if(sd_idx && type == UNSINGED_INT)
+		else if(sd_idx && type == UNSIGNED_INT)
 			sd_idx_int[0] = idx;
 	}
 
@@ -2495,7 +2508,7 @@ int kmodes_init_clb09(data_t **x, unsigned int n, unsigned int p, unsigned int K
 		memcpy(seeds[k], x[idx], p * sizeof **x);
 		if (sd_idx && (type == _SIZE_T_P))
 			sd_idx_s[k] = idx;
-		else if(sd_idx && type == UNSINGED_INT)
+		else if(sd_idx && type == UNSIGNED_INT)
 			sd_idx_int[k] = idx;
 
 		/* update distance to seed set */
@@ -2547,7 +2560,7 @@ kmodes_init_av07(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 	if (!greedy)
 		log_k = 1;
 
-        MAKE_VECTOR(W, n);
+        W = malloc(n * sizeof(*W));
 
         if (!W)
 		return KMODES_MEMORY_ERROR;
@@ -2626,7 +2639,7 @@ kmodes_init_av07(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 		}
 	}
 
-	FREE_VECTOR(W);
+	free(W);
 
 	return NO_ERROR;
 } /* kmodes_init_av07 */
@@ -2704,9 +2717,11 @@ size_t allocate_and_compute_category_counts(data_t **x, unsigned int n, unsigned
  * @param p	number of coordinates
  * @return	total number of categories summed across coordinates.
  */
-size_t allocate_and_compute_nj(data_t **x, unsigned int n, unsigned int p) {
+size_t allocate_and_compute_nj(data_t **x, unsigned int n, unsigned int p)
+{
 	size_t ncat = 0;
-	__nj = calloc(p, sizeof *__nj);	/* MAKE_VECTOR(__nj, p); */
+
+	__nj = calloc(p, sizeof(*__nj));
 	if (!__nj)
 		return ncat;
 	/* find no. categories in each column */
@@ -2813,7 +2828,8 @@ int allocate_nkjc(unsigned int K, unsigned int p, size_t ncat)
 	return NO_ERROR;
 
 ALLOCATE_NKJC_ERROR:
-	if (tmp) free(tmp);
+	if (tmp)
+		free(tmp);
 	FREE_2ARRAY(*__nkjc);
 
 	return mmessage(ERROR_MSG, MEMORY_ALLOCATION, "__nkjc");

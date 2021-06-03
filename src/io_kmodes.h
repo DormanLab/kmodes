@@ -2,7 +2,6 @@
 #define __IO_KMODES_H__
 
 #include <stdio.h>	/* FILE, fprintf() */
-//#include <stddef.h>
 #ifdef USE_CURSES
 #include <curses.h>	/* WINDOW, wprintw() */
 #endif

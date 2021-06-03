@@ -1,4 +1,5 @@
 #include "io.h"
+#include "kmodes_r.h"
 #include "math.h"
 #include "error.h"
 
@@ -6,8 +7,9 @@ void fprint_doubles(FILE *fp, double *v, size_t k, int precision, int newline)
 {
 	size_t i;
 	for (i = 0; i < k; ++i)
-		fprintf(fp, " %.*f", precision, v[i]);
-	if (newline) fprintf(fp, "\n");
+		kmodes_fprintf(fp, " %.*f", precision, v[i]);
+	if (newline)
+		kmodes_fprintf(fp, "\n");
 } /* fprint_doubles */
 
 #ifdef USE_CURSES
@@ -16,7 +18,8 @@ void wprint_doubles(WINDOW *wp, double *v, size_t k, int precision, int newline)
 	size_t i;
 	for (i = 0; i < k; ++i)
 		wprintw(wp, " %.*f", precision, v[i]);
-	if (newline) wprintw(wp, "\n");
+	if (newline)
+		wprintw(wp, "\n");
 } /* wprint_doubles */
 #endif
 
@@ -25,10 +28,11 @@ void fprint_uints(FILE *fp, unsigned int *v, size_t n, int width, int newline)
 	size_t i;
 	for (i = 0; i < n; ++i)
 		if (width)
-			fprintf(fp, " %*u", width, v[i]);
+			kmodes_fprintf(fp, " %*u", width, v[i]);
 		else
-			fprintf(fp, " %u", v[i]);
-	if (newline) fprintf(fp, "\n");
+			kmodes_fprintf(fp, " %u", v[i]);
+	if (newline)
+		kmodes_fprintf(fp, "\n");
 } /* fprint_uints */
 
 #ifdef USE_CURSES
@@ -40,7 +44,8 @@ void wprint_uints(WINDOW *wp, unsigned int *v, size_t n, int width, int newline)
 			wprintw(wp, " %*u", width, v[i]);
 		else
 			wprintw(wp, " %u", v[i]);
-	if (newline) wprintw(wp, "\n");
+	if (newline)
+		wprintw(wp, "\n");
 } /* wprint_uints */
 #endif
 
@@ -49,10 +54,11 @@ void fprint_uchars(FILE *fp, unsigned char *v, size_t n, int width, int newline)
 	size_t i;
 	for (i = 0; i < n; ++i)
 		if (width)
-			fprintf(fp, " %*u", width, v[i]);
+			kmodes_fprintf(fp, " %*u", width, v[i]);
 		else
-			fprintf(fp, " %u", v[i]);
-	if (newline) fprintf(fp, "\n");
+			kmodes_fprintf(fp, " %u", v[i]);
+	if (newline)
+		kmodes_fprintf(fp, "\n");
 } /* fprint_uchars */
 
 #ifdef USE_CURSES
@@ -64,7 +70,8 @@ void wprint_uchars(WINDOW *wp, unsigned char *v, size_t n, int width, int newlin
 			wprintw(wp, " %*u", width, v[i]);
 		else
 			wprintw(wp, " %u", v[i]);
-	if (newline) wprintw(wp, "\n");
+	if (newline)
+		wprintw(wp, "\n");
 } /* wprint_uchars */
 #endif
 
@@ -73,10 +80,11 @@ void fprint_size_ts(FILE *fp, size_t *v, size_t n, int width, int newline)
 	size_t i;
 	for (i = 0; i < n; ++i)
 		if (width)
-			fprintf(fp, " %*zu", width, v[i]);
+			kmodes_fprintf(fp, " %*zu", width, v[i]);
 		else
-			fprintf(fp, " %zu", v[i]);
-	if (newline) fprintf(fp, "\n");
+			kmodes_fprintf(fp, " %zu", v[i]);
+	if (newline)
+		kmodes_fprintf(fp, "\n");
 } /* fprint_size_ts */
 
 #ifdef USE_CURSES
@@ -88,7 +96,8 @@ void wprint_size_ts(WINDOW *wp, size_t *v, size_t n, int width, int newline)
 			wprintw(wp, " %*u", width, v[i]);
 		else
 			wprintw(wp, " %u", v[i]);
-	if (newline) wprintw(wp, "\n");
+	if (newline)
+		wprintw(wp, "\n");
 } /* wprint_size_ts */
 #endif
 
@@ -109,13 +118,13 @@ void fprint_vectorized_sq_matrix(FILE *fp, double *mat, size_t n, int row)
 	for (i = 0; i < n; ++i) {
 		for (j = 0; j < n; ++j) {
 			if ((row ? mat[i*n + j] : mat[j*n + i]) < 1e-2)
-				fprintf(fp, " %8.2e",
+				kmodes_fprintf(fp, " %8.2e",
 					row ? mat[i*n + j] : mat[j*n + i]);
 			else
-				fprintf(fp, " %8.3f",
+				kmodes_fprintf(fp, " %8.3f",
 					row ? mat[i*n + j] : mat[j*n + i]);
 		}
-		fprintf(fp, "\n");
+		kmodes_fprintf(fp, "\n");
 	}
 } /* fprint_vectorized_sq_matrix */
 
@@ -162,16 +171,16 @@ void fprint_vectorized_matrix(FILE *fp, double *mat, size_t n, size_t l,
 	size_t i, j;
 
 	for (i = 0; i < n; ++i) {
-		fprintf(fp, "%3lu", i);
+		kmodes_fprintf(fp, "%3lu", i);
 		for (j = 0; j < l; ++j) {
 			if ((row ? mat[i*l + j] : mat[j*l + i]) < 1e-2)
-				fprintf(fp, " %8.2e",
+				kmodes_fprintf(fp, " %8.2e",
 					row ? mat[i*l + j] : mat[j*l + i]);
 			else
-				fprintf(fp, " %8.3f",
+				kmodes_fprintf(fp, " %8.3f",
 					row ? mat[i*l + j] : mat[j*l + i]);
 		}
-		fprintf(fp, "\n");
+		kmodes_fprintf(fp, "\n");
 	}
 } /* fprint_vectorized_matrix */
 
@@ -222,12 +231,12 @@ void fprint_vectorized_uintmatrix(FILE *fp, unsigned int *mat, unsigned int n, u
 	for (i = 0; i < n; ++i) {
 		for (j = 0; j < l; ++j) {
 			if ((row ? mat[i*l + j] : mat[j*l + i]) < 1e-2)
-				fprintf(fp, " %u",
+				kmodes_fprintf(fp, " %u",
 					row ? mat[i*l + j] : mat[j*l + i]);
 			else
-				fprintf(fp, " %u",
+				kmodes_fprintf(fp, " %u",
 					row ? mat[i*l + j] : mat[j*l + i]);
 		}
-		fprintf(fp, "\n");
+		kmodes_fprintf(fp, "\n");
 	}
 } /* fprint_vectorized_uintmatrix */

@@ -50,15 +50,15 @@ kmodes has been tested under Linux and MacOS.
 # Tutorial <a name = "tutorial" />
 
 For this mini-tutorial, we assume you have compiled the executable ```run_kmodes``` and have copied it into the demo directory, where you will carry out this tutorial.
-All the files created in this tutorial are in the `demo` directory.  Beware that you will overwrite them if you repeat these commands.
+All the files created in this tutorial are in the `demo` directory, except for simulated data, which is in `../data/sim.txt`.  Beware that you will overwrite the files in the demo directory if you repeat these commands. If you want to skip the simulation in step 1 and analyze the existing data in directory `../data`, you should replace `sim.txt` in the subsequent commands with `../data/sim.txt`.
 
 1. Simulate data consisting of 100 observations with 50 coordinates in 4 categories and relative abundances of 0.1, 0.2, 0.25, and 0.45.
 Parameters 8.1 and 2.0 determine the amount of 'time' separating the modes and the observations from their modes.
-The simulated data are written to file `sim.dat`, **with the true cluster membership of each observation in the first column**, and the simulation settings to `sim.out`.
+The simulated data are written to file `sim.txt`, **with the true cluster membership of each observation in the first column**, and the simulation settings to `sim.out`.
 We set the random seed to 123 and do not actually run k-modes (`-n 0` means 0 initializations).
 
 ```
-./run_kmodes --simulate 100 50 4 8.1 2.0 --pi 0.10 0.20 0.25 0.45 -f sim.dat -o sim.out -r 123 -n 0
+./run_kmodes --simulate 100 50 4 8.1 2.0 --pi 0.10 0.20 0.25 0.45 -f sim.txt -o sim.out -r 123 -n 0
 ```
 
 2. Estimate the clustering given K=4 clusters using the Hartigan and Wong algorithm (```-w```), outputing the results in ```sim.hw.out```.
@@ -66,13 +66,13 @@ We ask for 100 randomly initializations and set the random number seed to 321.
 We inform ```run_kmodes``` that the true cluster memberships are given in the first column (```-c 0```), and this information will be used to compute quantities like the adjusted RAND index.
 
 ```
-./run_kmodes -f sim.dat -o sim.hw.out -k 4 -w -n 100 -i rnd -r 321 -c 0
+./run_kmodes -f sim.txt -o sim.hw.out -k 4 -w -n 100 -i rnd -r 321 -c 0
 ```
 
 3. Repeat using Huang's (1997) algorithm, which is the default.  Notice, we are using the exact same random initializations, since we set an identical seed.
 
 ```
-./run_kmodes -f sim.dat -o sim.h97.out -k 4 -n 100 -i rnd -r 321 -c 0
+./run_kmodes -f sim.txt -o sim.h97.out -k 4 -n 100 -i rnd -r 321 -c 0
 ```
 
 4. Compare of the last line of output on my system shows:
@@ -91,7 +91,7 @@ We can see that Huang's algorithm took more time and obtained substantially high
 
 ```
 tail -n 4 sim.out | head -n 1 > sim.part	# extract true partition from simulation output file
-./run_kmodes -f sim.dat -o sim.h97.part.out -p sim.part -k 4 -c 0
+./run_kmodes -f sim.txt -o sim.h97.part.out -p sim.part -k 4 -c 0
 ```
 
 6. Analyze a real dataset.  We run the Hartigan and Wong algorithm for 1000 initializations for each all K in 1 to 8.
@@ -99,20 +99,21 @@ Then, we use `run_kmodes` to select K via 9 different K-selection methods.
 This last command uses an R script provided in the `scripts` directory.
 If that script does not work for you, the effective number of independent coordinates is 15.47, which you can provide directly as the argument to option `-p`.
 Though not shown here, you should probably increase the number of initializations as you increase K since optimization is harder for larger K.
+In the following, we assume you are in the `data` directory and have a copy of the executable `run_kmodes` in there as well.
 ```
-for k in `seq 1 8`; do ./run_kmodes -f soybean-small.int.data -o soybean-small.K${k}.out soybean-small.K${k}.ini -k $k -w -n 1000 -i rnd -r $RANDOM -c 0; done
-./run_kmodes -f soybean-small.int.data --column 0 -k1 soybean-small.K1.out -k2 soybean-small.K2.out -k3 soybean-small.K3.out -k4 soybean-small.K4.out -k5 soybean-small.K5.out -k6 soybean-small.K6.out -k7 soybean-small.K7.out -p `../scripts/eff_p.Rsrc soybean-small.int.data 0.999`
+for k in `seq 1 8`; do ./run_kmodes -f soybean.txt -o soybean-small.K${k}.out soybean-small.K${k}.ini -k $k -w -n 1000 -i rnd -r $RANDOM -c 0; done
+./run_kmodes -f soybean.txt --column 0 -k1 soybean-small.K1.out -k2 soybean-small.K2.out -k3 soybean-small.K3.out -k4 soybean-small.K4.out -k5 soybean-small.K5.out -k6 soybean-small.K6.out -k7 soybean-small.K7.out -p `../scripts/eff_p.Rsrc soybean.txt 0.999`
 ```
 The output is not particularly friendly.  Just pay attention to the penultimate line, which in our case (the results will now vary) looks like:
 ```
-soybean-small.int.data     Maxima: J =  7, rJ =  7, kJ =  7, J2 =  3, rJ2 =  1, kJ2 =  3, KL =  3, rKL =  3, kKL =  3
+soybean.txt     Maxima: J =  7, rJ =  7, kJ =  7, J2 =  3, rJ2 =  1, kJ2 =  3, KL =  3, rKL =  3, kKL =  3
 ```
 where the K selections made for each method is given.  The reported true K for this dataset is 4.
 
 7. To use the Daneel method, you need the timing information for an initialization method without updates during the first iteration.
 ```
-for k in `seq 1 8`; do ./run_kmodes -f soybean-small.int.data -o soybean-small.K${k}.nup.out soybean-small.K${k}.nup.ini -k $k -w -u -n 1000 -i rnd -r $RANDOM -c 0; done
-./run_kmodes -f soybean-small.int.data -k1 soybean-small.K1.ini -k2 soybean-small.K2.ini -k3 soybean-small.K3.ini -k4 soybean-small.K4.ini -k5 soybean-small.K5.ini -k6 soybean-small.K6.ini -k7 soybean-small.K7.ini -k8 soybean-small.K8.ini -n1 soybean-small.K1.nup.ini -n2 soybean-small.K2.nup.ini -n3 soybean-small.K3.nup.ini -n4 soybean-small.K4.nup.ini -n5 soybean-small.K5.nup.ini -n6 soybean-small.K6.nup.ini -n7 soybean-small.K7.nup.ini -n8 soybean-small.K8.nup.ini --column 0
+for k in `seq 1 8`; do ./run_kmodes -f soybean.txt -o soybean-small.K${k}.nup.out soybean-small.K${k}.nup.ini -k $k -w -u -n 1000 -i rnd -r $RANDOM -c 0; done
+./run_kmodes -f soybean.txt -k1 soybean-small.K1.ini -k2 soybean-small.K2.ini -k3 soybean-small.K3.ini -k4 soybean-small.K4.ini -k5 soybean-small.K5.ini -k6 soybean-small.K6.ini -k7 soybean-small.K7.ini -k8 soybean-small.K8.ini -n1 soybean-small.K1.nup.ini -n2 soybean-small.K2.nup.ini -n3 soybean-small.K3.nup.ini -n4 soybean-small.K4.nup.ini -n5 soybean-small.K5.nup.ini -n6 soybean-small.K6.nup.ini -n7 soybean-small.K7.nup.ini -n8 soybean-small.K8.nup.ini --column 0
 ```
 It is not clear the method works well for these real data, but try the same operations on the simulation data to see how clear the signal can be.
 

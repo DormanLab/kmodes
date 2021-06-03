@@ -1,5 +1,5 @@
-#ifndef _ERROR_H_
-#define _ERROR_H_
+#ifndef __ERROR_H__
+#define __ERROR_H__
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -7,7 +7,8 @@
 #ifdef USE_CURSES
 #include <curses.h>
 #endif
-#include "error.h"
+
+#include "kmodes_r.h"
 
 /** Types of messages.
  */
@@ -48,11 +49,8 @@ enum {	NO_ERROR,		/*!< no error */
 /** Level of verbosity.
  */
 enum {	ABSOLUTE_SILENCE,	/*!< only output through files */
-	SILENT,			/*!< no verbosity; final output only */
 	QUIET,			/*!< try to be quiet */
 	MINIMAL,		/*!< minimal verbosity */
-	RESTRAINED,		/*!< some output */
-	TALKATIVE,		/*!< talkative output */
 	VERBOSE,		/*!< verbose output */
 	DEBUG_I,		/*!< debugging output */
 	DEBUG_II,		/*!< debugging output */
@@ -61,6 +59,11 @@ enum {	ABSOLUTE_SILENCE,	/*!< only output through files */
 };
 
 extern int global_debug_level;
+
+int message(FILE *, const char *, const char *, int, int, int, const char *, ...);
+#ifdef USE_CURSES
+int wmessage(WINDOW *, const char *, const char *, int, int, int, const char *, ...);
+#endif
 
 #define CHECK_TIME(start_time, time_lim, file_name, fxn_name) {                \
 	errno = NO_ERROR;                                                      \
@@ -93,42 +96,13 @@ extern int global_debug_level;
  */
 #define mmessage(type, err, ...) message(stderr, __FILE__, __func__,  __LINE__, (type), (err),  __VA_ARGS__)
 
-#ifdef USE_CURSES
-/**
- * Print a formatted message to curses window.
- */
-#define mwmessage(wp, type, err, ...) wmessage((wp), __FILE__, __func__,  __LINE__, (type), (err),  __VA_ARGS__)
-
-/**
- * Print a formatted message to either stderr or curses window.
- */
-#define KMODES_MESSAGE(wp, type, err, ...) (                                   \
-	(wp) ? wmessage((wp), __FILE__, __func__, __LINE__, (type), (err),     \
-		__VA_ARGS__) :                                                 \
-	message(stderr, __FILE__, __func__, __LINE__, (type), (err),           \
-		__VA_ARGS__))
-#else
-#define KMODES_MESSAGE(wp, type, err, ...) (                                   \
-	message(stderr, __FILE__, __func__, __LINE__, (type), (err),           \
-		__VA_ARGS__))
-#endif
-
-#ifdef USE_CURSES
-#define KMODES_MESSAGE_CONT(wp, ...) (                                         \
-	(wp) ? wprintw((wp), __VA_ARGS__) :                                    \
-	fprintf(stderr, __VA_ARGS__))
-#else
-#define KMODES_MESSAGE_CONT(wp, ...) (                                         \
-	fprintf(stderr, __VA_ARGS__))
-#endif
-
 /**
  * Conditionally print a formatted message to stderr.
  */
 #define debug_msg(condition, level, ...) do {                                  \
 	if ((condition) || ((level) && (level) <= global_debug_level))         \
 		message(stderr, __FILE__, __func__, __LINE__, level >= DEBUG_I \
-		? DEBUG_MSG : INFO_MSG, NO_ERROR, __VA_ARGS__);                \
+			? DEBUG_MSG : INFO_MSG, NO_ERROR, __VA_ARGS__);        \
 } while (0)
 
 /**
@@ -136,50 +110,8 @@ extern int global_debug_level;
  */
 #define debug_msg_cont(condition, level, ...) do {                             \
 	if ((condition) || ((level) && (level) <= global_debug_level))         \
-		fprintf(stderr, __VA_ARGS__);                                  \
+		kmodes_fprintf(stderr, __VA_ARGS__);                           \
 } while(0)
-
-/**
- * Conditionally print a formatted message to stderr or curses window.
- */
-#ifdef USE_CURSES
-#define cc_msg(wp, condition, lvl, msg, ...) do {                              \
-	if ((condition) || ((lvl) && (lvl) <= global_debug_level)) (           \
-		(wp)                                                           \
-		? wmessage((wp), __FILE__, __func__, __LINE__, (lvl) >= DEBUG_I\
-			? DEBUG_MSG : INFO_MSG, NO_ERROR, msg, __VA_ARGS__) :  \
-		message(stderr, __FILE__, __func__, __LINE__, (lvl)>=DEBUG_I   \
-			? DEBUG_MSG : INFO_MSG, NO_ERROR, msg, __VA_ARGS__));  \
-} while (0)
-#else
-#define cc_msg(wp, condition, lvl, msg, ...) do {                              \
-	if ((condition) || ((lvl) && (lvl) <= global_debug_level)) (           \
-		message(stderr, __FILE__, __func__, __LINE__, (lvl)>=DEBUG_I   \
-			? DEBUG_MSG : INFO_MSG, NO_ERROR, msg, __VA_ARGS__));  \
-} while (0)
-#endif
-
-/**
- * Conditionally print a continuing message to stderr or curses window.
- */
-#ifdef USE_CURSES
-#define cc_msg_cont(wp, condition, level, ...) do {                            \
-	if ((condition) || ((level) && (level) <= global_debug_level)) (       \
-		(wp)                                                           \
-		? wprintw((wp), __VA_ARGS__) :                                 \
-		fprintf(stderr, __VA_ARGS__));                                 \
-} while(0)
-#else
-#define cc_msg_cont(wp, condition, level, ...) do {                            \
-	if ((condition) || ((level) && (level) <= global_debug_level)) (       \
-		fprintf(stderr, __VA_ARGS__));                                 \
-} while(0)
-#endif
-
-int message(FILE *, const char *, const char *, int, int, int, const char *, ...);
-#ifdef USE_CURSES
-int wmessage(WINDOW *, const char *, const char *, int, int, int, const char *, ...);
-#endif
 
 /**
  * Conditionally call a function.

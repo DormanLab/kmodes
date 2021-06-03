@@ -1,0 +1,11 @@
+\.git
+Makefile
+src/cmake.*
+src/CMake.*
+src/symbols.rds
+src/run_kmodes
+\.o$
+\.so$
+demo/.*\.ini$
+demo/.*\.out$
+demo/.*\.part$

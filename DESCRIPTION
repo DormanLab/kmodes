@@ -1,0 +1,10 @@
+Package: kmodes
+Type: Package
+Title: Cluster categorical data via k-modes
+Version: 1.0
+Date: 2021-06-02
+Author: K. S. Dorman, Yudi Zhang
+Maintainer: K. S. Dorman <kdorman@iastate.edu>
+Description: Implements several algorithm for k-modes, including Huang's algorith and Hartigan and Wong's k-means algorithm adopted by Dorman & Maitra for categorical data. Also implements several initialization methods. K-selection methods are available in the standalone command-line program.
+License: file LICENSE
+RoxygenNote: 7.1.1

@@ -91,7 +91,7 @@ enum {
  * format of the pointer of the index
  */
 enum {
-	UNSINGED_INT,
+	UNSIGNED_INT,
 	_SIZE_T_P
 };
 

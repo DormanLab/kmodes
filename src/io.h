@@ -2,7 +2,7 @@
 #define __IO_H__
 
 #include <stdio.h>	/* FILE */
-//#include <stddef.h>	/* fprintf() */
+#include <stdarg.h>
 #ifdef USE_CURSES
 #include <curses.h>	/* WINDOW, wprintw() */
 #endif

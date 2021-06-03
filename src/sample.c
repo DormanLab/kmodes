@@ -114,7 +114,6 @@ void sample_vitter(unsigned int N, unsigned int n, unsigned int *idx)
 		do {
 			do {
 				X = dN * (-vprime + 1.);
-				fprintf(stderr, "X = %f\n", X);
 				S = (int) X;
 				if (S < qu1)
 					break;

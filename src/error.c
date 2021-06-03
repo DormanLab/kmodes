@@ -7,7 +7,7 @@
 
 #include "error.h"
 
-int global_debug_level = MINIMAL;	/* allow some informational */
+int global_debug_level = ABSOLUTE_SILENCE;	/* allow some informational */
 
 int vmessage(FILE *fp, const char *file_name, const char *fxn_name, int line,
 	int msg_type, int msg_id, const char *msg, va_list vl);
@@ -41,102 +41,102 @@ int message(FILE *fp, const char *file_name, const char *fxn_name, int line,
 int vmessage(FILE *fp, const char *file_name, const char *fxn_name, int line,
 	int msg_type, int msg_id, const char *msg, va_list vl) {
 	int nsec;
-	fprintf(fp, "%s [%s::%s(%4d)]: ",
+	kmodes_fprintf(fp, "%s [%s::%s(%4d)]: ",
 		msg_type == INFO_MSG ? "INFO" : msg_type == DEBUG_MSG ? "DEBUG"
 			: msg_type == WARNING_MSG ? "WARNING" : "ERROR",
 		file_name, fxn_name, line);
 	if (msg_id == NO_ERROR) {
-		vfprintf(fp, msg, vl);
+		kmodes_vfprintf(fp, msg, vl);
 	} else {
 		switch(msg_id) {
 			case MEMORY_ALLOCATION:
 				if (msg) {
-					fprintf(fp, "could not allocate ");
-					vfprintf(fp, msg, vl);
+					kmodes_fprintf(fp, "could not allocate ");
+					kmodes_vfprintf(fp, msg, vl);
 				} else
-					fprintf(fp, "memory allocation error\n");
+					kmodes_fprintf(fp, "memory allocation error\n");
 				break;
 			case INVALID_CMD_OPTION:
-				fprintf(fp, "unrecognized command option");
+				kmodes_fprintf(fp, "unrecognized command option");
 				if (msg) {
-					fprintf(fp, ": ");
-					vfprintf(fp, msg, vl);
+					kmodes_fprintf(fp, ": ");
+					kmodes_vfprintf(fp, msg, vl);
 				} else
-					fprintf(fp, "\n");
+					kmodes_fprintf(fp, "\n");
 				break;
 			case INVALID_CMD_ARGUMENT:
-				fprintf(fp, "invalid argument to command option");
+				kmodes_fprintf(fp, "invalid argument to command option");
 				if (msg) {
-					fprintf(fp, ": ");
-					vfprintf(fp, msg, vl);
+					kmodes_fprintf(fp, ": ");
+					kmodes_vfprintf(fp, msg, vl);
 				} else
-					fprintf(fp, "\n");
+					kmodes_fprintf(fp, "\n");
 				break;
 			case INVALID_CMDLINE:
-				fprintf(fp, "[invalid command line] ");
+				kmodes_fprintf(fp, "[invalid command line] ");
 				if (msg)
-					vfprintf(fp, msg, vl);
+					kmodes_vfprintf(fp, msg, vl);
 				else
-					fprintf(fp, "\n");
+					kmodes_fprintf(fp, "\n");
 				break;
 			case INVALID_USER_INPUT:
-				fprintf(fp, "[invalid user choice] ");
+				kmodes_fprintf(fp, "[invalid user choice] ");
 				if (msg)
-					vfprintf(fp, msg, vl);
+					kmodes_vfprintf(fp, msg, vl);
 				else
-					fprintf(fp, "\n");
+					kmodes_fprintf(fp, "\n");
 				break;
 			case FILE_OPEN_ERROR:
-				fprintf(fp, "could not open file \"%s\"\n", msg);
+				kmodes_fprintf(fp, "could not open file \"%s\"\n", msg);
 				break;
 			case PIPE_OPEN_ERROR:
-				fprintf(fp, "could not execute command \"%s\"\n", msg);
+				kmodes_fprintf(fp, "could not execute command \"%s\"\n", msg);
 				break;
 			case FILE_NOT_FOUND:
-				fprintf(fp, "file \"%s\" not found\n", msg);
+				kmodes_fprintf(fp, "file \"%s\" not found\n", msg);
 				break;
 			case FILE_FORMAT_ERROR:
-				fprintf(fp, "invalid file format");
+				kmodes_fprintf(fp, "invalid file format");
 				if (msg) {
-					fprintf(fp, ": ");
-					vfprintf(fp, msg, vl);
+					kmodes_fprintf(fp, ": ");
+					kmodes_vfprintf(fp, msg, vl);
 				} else
-					fprintf(fp, "\n");
+					kmodes_fprintf(fp, "\n");
 				break;
 			case END_OF_FILE:
-				fprintf(fp, "unexpected end of file in file \"%s\"\n", msg);
+				kmodes_fprintf(fp, "unexpected end of file in file \"%s\"\n", msg);
 				break;
 			case INTERNAL_MISMATCH:
-				fprintf(fp, "[internal mismatch] %s\n", msg);
+				kmodes_fprintf(fp, "[internal mismatch] %s\n", msg);
 				break;
 			case OUT_OF_TIME:
-				fprintf(fp, "out of time");
+				kmodes_fprintf(fp, "out of time");
 				if (msg) {
 					nsec = va_arg(vl, int);
-					fprintf(fp, " (%slimit %02d:%02dm)",
+					kmodes_fprintf(fp, " (%slimit %02d:%02dm)",
 						msg, (int)(nsec/3600),
 						(int)((nsec%3600)/60));
 				}
-				fprintf(fp, "\n");
+				kmodes_fprintf(fp, "\n");
 				break;
 			case MEMORY_USAGE_LIMIT:
-				fprintf(fp, "exceed memory limit");
+				kmodes_fprintf(fp, "exceed memory limit");
 				if (msg) {
-					fprintf(fp, ": ");
-					vfprintf(fp, msg, vl);
+					kmodes_fprintf(fp, ": ");
+					kmodes_vfprintf(fp, msg, vl);
 				} else
-					fprintf(fp, "\n");
+					kmodes_fprintf(fp, "\n");
 				break;
 			case EXCEED_ITERATIONS:
-				fprintf(fp, "exceed iteration limit");
+				kmodes_fprintf(fp, "exceed iteration limit");
 				if (msg) {
-					fprintf(fp, ": ");
-					vfprintf(fp, msg, vl);
+					kmodes_fprintf(fp, ": ");
+					kmodes_vfprintf(fp, msg, vl);
 				} else
-					fprintf(fp, "\n");
+					kmodes_fprintf(fp, "\n");
 				break;
 			default:
-				vfprintf(fp, msg, vl);
+				kmodes_vfprintf(fp, msg, vl);
 		}
 	}
 	return msg_id;
