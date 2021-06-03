@@ -141,11 +141,26 @@ int run_kmodes(data *dat, options *opt)
 			} else {
 				perturb(dat, opt);
 			}
-		} else if ((err = initialize(dat, opt))) {
-			mmessage(ERROR_MSG, CUSTOM_ERROR, "%s\n",
-							kmodes_error(err));
-			goto CLEAR_AND_EXIT;
-		}
+        } else {
+            if (opt->inner_perturb) { /* if use 2 settings perturbations */
+                if (i%(opt->inner_perturb + 1) == 0) {
+                    if((err = initialize(dat, opt)))
+                        goto CLEAR_AND_EXIT;
+                }
+                else if ((err = perturb_general(dat, opt))) {
+                    goto CLEAR_AND_EXIT;
+                }
+            } else {
+                if (i && opt->n_perturb && (err = perturb_general(dat, opt)))
+                    goto CLEAR_AND_EXIT;
+                if ((!i || !opt->n_perturb) && (err = initialize(dat, opt))) {
+                    mmessage(ERROR_MSG, CUSTOM_ERROR, "%s\n",
+                                    kmodes_error(err));
+                    goto CLEAR_AND_EXIT;
+                }
+            }
+        }
+        
 		/* run one of k-modes algorithms */
 		if (opt->kmodes_algorithm == KMODES_HUANG) {
 			dat->total = kmodes_huang(dat->dmat,
@@ -192,7 +207,6 @@ int run_kmodes(data *dat, options *opt)
 #else
 		write_status(dat, opt, NULL, NULL, i, &start);
 #endif
-
 		/* record best solution */
 		if ((!err || err == KMODES_EXCEED_ITER_WARNING)
 			&& dat->total < dat->best_total) {
@@ -904,6 +918,9 @@ int make_options(options **opt) {
 	(*opt)->shuffle = 0;
 	(*opt)->kmodes_algorithm = KMODES_HUANG;
 	(*opt)->init_method = KMODES_INIT_RANDOM_SEEDS;
+    (*opt)->perturb_selection = KMODES_PERTURB_HD;
+    (*opt)->n_perturb = 0;
+    (*opt)->inner_perturb = 0;
 	(*opt)->continue_run = 0;
 	(*opt)->select_k = 0;
 	(*opt)->dm_method = 0;
@@ -1221,9 +1238,32 @@ int parse_options(options *opt, int argc, const char **argv)
 			opt->subtract_one = 1;
 			break;
 		case 'p':
-			if (i + 1 == argc || (err =
-				process_arg_p(argc, argv, &i, j, opt)))
+			if (!strcmp(&argv[i][j], "perturb")) {
+				opt->n_perturb = 1;
+				debug_msg(MINIMAL, opt->quiet, "Will "
+					"\"perturb\" %u seeds rather "
+					"than re-initialize.\n",
+					opt->n_perturb);
+				if (i + 1 < argc && argv[i][0] != '-') {
+					opt->inner_perturb = read_uint(argc,
+							argv, ++i, (void *)opt);
+					debug_msg(MINIMAL, opt->quiet, "Using "
+						"%u perturbations per initializ"
+						"ation.\n", opt->inner_perturb);
+				}
+			} else {
+				if (i + 1 == argc || (err =
+					process_arg_p(argc, argv, &i, j, opt)))
+					goto CMDLINE_ERROR;
+			}
+			break;
+		case 'a':	/* deprecated: here so doesn't break for Yudi */
+			if (i + 1 == argc)
 				goto CMDLINE_ERROR;
+			opt->inner_perturb = read_uint(argc, argv, ++i,
+								(void *)opt);
+			debug_msg(MINIMAL, opt->quiet, "Using %u perturbations "
+				"per initialization.\n", opt->inner_perturb);
 			break;
 		case 'r':
 			if (i + 1 == argc)
@@ -3689,6 +3729,9 @@ void fprint_usage(FILE *fp, const char *cmdname, void *obj)
 	kmodes_fprintf(fp, "\t   IFILE\n\t\tProvide file with possible seeds.\n");
 	kmodes_fprintf(fp, "\t\tIf more than K seeds in IFILE, then method is 'rnds'.\n");
 	kmodes_fprintf(fp, "\t\tIf K seeds in IFILE, then initialize with these seeds.\n");
+        kmodes_fprintf(fp, "\t--perturb [INT]\n\t\tPerturb initialization.\n"
+		"If INT provided, then perturb INT times for each random initialization.\n\t\t"
+		"Otherwise, only initialize once.\n");
 	kmodes_fprintf(fp, "\t-p, --partition PFILE\n\t\t"
 		"Partition file for deterministic initialization.  Modes of given\n\t\t"
 		"partition will be initial modes.  Partition file contains space-\n\t\t"

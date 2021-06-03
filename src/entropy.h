@@ -26,6 +26,6 @@
 int perturb(data *dat, options *opt);
 int initialize_by_abundance(data *dat, unsigned int K, unsigned int k1, data_t **seeds, unsigned int *sd_idx);
 int mask_nhash(data *dat, options *opt);
-
+int perturb_general(data *dat, options *opt);
 
 #endif /* entropy_h */

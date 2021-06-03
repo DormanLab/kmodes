@@ -72,9 +72,8 @@ static inline double hd_coord(data_t *x, data_t *y, unsigned int j, int weight);
 
 /* k-modes initialization routines */
 int kmodes_init_random_seeds(data_t **x, unsigned int n, unsigned int p, unsigned int K, unsigned int k1, data_t **seeds, unsigned int *sd_idx);
-int kmodes_init_h97(data_t **x, unsigned int n, unsigned int p, unsigned int K, unsigned int k1, int wgt, int rdm, data_t **seeds, unsigned int *sd_idx);
-int kmodes_init_hd17(data_t **x, unsigned int n, unsigned int p, unsigned int K, unsigned int k1, int wgt, data_t **seeds, unsigned int *sd_idx);
-int kmodes_init_av07(data_t **X, unsigned int n, unsigned int p, unsigned int K, unsigned int k1, int weight, data_t **seeds, unsigned int *sd_idx, int greedy);
+
+
 int compare_data(data_t **x, unsigned int i, unsigned int j, unsigned int n);
 int compare_data_to_seed(data_t **x, unsigned int i, data_t *seed, unsigned int p);
 
@@ -2204,9 +2203,9 @@ int kmodes_init_h97(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 	int same;
 	double d, dmin;
 
-	if (k1 > 0)
-		return mmessage(ERROR_MSG, INTERNAL_ERROR, "Initialization "
-			"method h97 cannot be used with set seeds.\n");
+//	if (k1 > 0)
+//		return mmessage(ERROR_MSG, INTERNAL_ERROR, "Initialization "
+//			"method h97 cannot be used with set seeds.\n");
 
 	/* allocate category counts: last arg force __njc */
 	if (!(ncat = allocate_and_compute_category_counts(x, n, p, K, 1)))
@@ -2268,12 +2267,12 @@ int kmodes_init_h97(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 			}
 
 			/* insure the newly seed is not same as previous seed */
-                        for (unsigned int j = 0; j < k; ++j)
-                                if (sidx[k] == sidx[j] ||
-                                        !compare_data(x, sidx[k], sidx[j], p)) {
-                                        same = 1;
-                                        break;
-                                }
+            for (unsigned int j = 0; j < k; ++j)
+                    if (sidx[k] == sidx[j] ||
+                            !compare_data(x, sidx[k], sidx[j], p)) {
+                            same = 1;
+                            break;
+                    }
 		} while (same);
 		memcpy(seeds[k], x[sidx[k]], p * sizeof **x);
 	}
@@ -2307,9 +2306,9 @@ int kmodes_init_hd17(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 	int same;
 	double d, dmin;
 
-	if (k1 > 0)
-		return mmessage(ERROR_MSG, INTERNAL_ERROR, "Initialization "
-			"method hd17 cannot be used with set seeds.\n");
+//	if (k1 > 0)
+//		return mmessage(ERROR_MSG, INTERNAL_ERROR, "Initialization "
+//			"method hd17 cannot be used with set seeds.\n");
 
 	/* allocate category counts: last arg force __njc */
 	if (!(ncat = allocate_and_compute_category_counts(x, n, p, K, 1)))
