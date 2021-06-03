@@ -3,7 +3,7 @@ Makefile
 src/cmake.*
 src/CMake.*
 src/symbols.rds
-src/run_kmodes
+src/run_kmodes$
 \.o$
 \.so$
 demo/.*\.ini$
