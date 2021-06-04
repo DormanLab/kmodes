@@ -36,15 +36,17 @@ cat("\nWith just half as many initializations, DM21 reduces objective on average
 	sim.dm21$average.ari - sim.h97$average.ari, "over H97.\n\n")
 
 ### compare timing of H97, HW, and klaR
-if (requireNamespace('klaR', quietly = TRUE) & requireNamespace('rbenchmark', quietly = TRUE)) {
+if (requireNamespace('rbenchmark', quietly = TRUE)) {
 	library(rbenchmark, quietly = TRUE)
 
 	# beware, sometimes this fails for as yet unknown reasons
-	print(benchmark(
-		"dm21" = kmodes::kmodes(sim[,-1], K=4, alg="hw"),
-		"cgc01" = kmodes::kmodes(sim[,-1], K=4, alg="lloyd"),
-		"h97" = kmodes::kmodes(sim[,-1], K=4, alg="h97"),
-		"klaR" = klaR::kmodes(sim[,-1], modes=4), replications=10))
+	if (requireNamespace('klaR', quietly = TRUE)) {
+		print(benchmark(
+			"dm21" = kmodes::kmodes(sim[,-1], K=4, alg="hw"),
+			"cgc01" = kmodes::kmodes(sim[,-1], K=4, alg="lloyd"),
+			"h97" = kmodes::kmodes(sim[,-1], K=4, alg="h97"),
+			"klaR" = klaR::kmodes(sim[,-1], modes=4), replications=10))
+	}
 
 	benchmark(
 		"dm21" = kmodes::kmodes(sim[,-1], K=4, n.init = n.init.dm21, alg="hw"),
