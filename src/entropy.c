@@ -212,7 +212,7 @@ int mask_nhash(data *dat, options *opt)
 	unsigned int K = opt->K;
 	int abunk = opt->abunk;
 	unsigned int p = dat->n_coordinates, n = dat->n_observations;
-	unsigned int i, j, m;
+	unsigned int i, m;
 	
 	if ((err = entropy_per_coordinate(dat)))
 		return err;
@@ -265,9 +265,14 @@ int mask_nhash(data *dat, options *opt)
 				fprintf(stderr, "%d", dat->masked_dmat[s->idx][j]);
 #endif
 		if (opt->true_modes) {
-			unsigned int min_hd = UINT_MAX, chosen_k = 0;
+			unsigned int min_hd = UINT_MAX;
+#idef DEBUGGING_CODE
+			unsigned int chosen_k = 0;
+#endif
+
 			for (unsigned int k = 0; k < opt->true_K; ++k) {
 				unsigned int hd = 0;
+
 				for (unsigned int j = 0; j < p; ++j)
 					if (dat->entropy_order[j] >= dat->n_masked
 						&& dat->dmat[s->idx][j] != opt->true_modes[k][j])
@@ -278,7 +283,9 @@ int mask_nhash(data *dat, options *opt)
 					break;
 				} else*/ if (hd < min_hd) {
 					min_hd = hd;
+#ifdef DEBUGGING_CODE
 					chosen_k = k;
+#endif
 				}
 			}
 #ifdef DEBUGGING_CODE
