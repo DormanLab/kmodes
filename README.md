@@ -3,10 +3,16 @@ k-modes
 
 This software implements algorithms from [Huang (1997)](http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.6.4718), [Chaturvedi _et al._ (2001)](https://doi.org/10.1007/s00357-001-0004-3), and Dorman and Maitra (2020) to minimize the k-modes objective function.
 It also implements several initialization methods and K-selection methods.
+It has primarily been designed as a standalone executable, but you can now get some of the functionality by installing the R package.
+Skip to [Installation](#installation) to see how.
 
 # Table of Contents
 1. [Prerequisites](#prerequisites)
 1. [Installation](#installation)
+
+	1. [R package](#Rinstallation)
+	1. [C executable](#Cinstallation)
+
 1. [Tutorial](#tutorial)
 1. [Input Files](#input)
 1. [Output](#output)
@@ -26,27 +32,50 @@ It also implements several initialization methods and K-selection methods.
 
 # Installation <a name = "installation" />
 
-kmodes has been tested under Linux and MacOS.
+This kmodes software has been tested under Linux and MacOS.
 
-1. Clone the repository.
+1. R package <a name = "Rinstallation" />
 
-    ```sh
-    git clone https://github.com/DormanLab/kmodes.git
-    ```
+	1. Install the [devtools](https://devtools.r-lib.org/) R package if you have not already. From the R command prompt:
 
-2. Configure the project.
+	    ```sh
+	    install.packages("devtools")
+	    ```
 
-   ```sh
-   cd kmodes/src
-   cmake .
-   ```
+	1. Install the k-modes package:
 
-3. Compile kmodes.  The executable is called ```run_kmodes```.  It will appear in the ```src``` directory you are currently in.
+	    ```sh
+	    devtools::install_github("DormanLab/kmodes")
+	    ```
 
-   ```sh
-   make
-   ```
+1. C executable <a name = "Cinstallation" />
 
+	1. Clone the repository.
+
+	    ```sh
+	    git clone https://github.com/DormanLab/kmodes.git
+	    ```
+	
+	2. Configure the project.
+	
+	   ```sh
+	   cd kmodes/src
+	   cmake -S . -B build
+	   ```
+	
+	3. Compile kmodes.  The executable is called ```run_kmodes```.  It will appear in the ```src/build``` directory you are currently in.
+	
+	   ```sh
+	   cd build
+	   make
+	   ```
+	
+	4. Install kmodes. Copy the executable to wherever you need it. If you have root privileges, you can install it into the system path, for example:
+	
+	   ```sh
+	   sudo cp run_kmodes /usr/local/bin
+	   ```
+	
 # Tutorial <a name = "tutorial" />
 
 For this mini-tutorial, we assume you have compiled the executable ```run_kmodes``` and have copied it into the demo directory, where you will carry out this tutorial.

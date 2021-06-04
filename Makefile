@@ -1,5 +1,5 @@
 # 'Makefile'
-MARKDOWN = pandoc --from gfm --to html --standalone
+MARKDOWN = pandoc --from gfm --to html --standalone --metadata pagetitle="k-modes"
 all: $(patsubst %.md,%.html,$(wildcard *.md)) Makefile
 
 clean:

@@ -1,6 +1,7 @@
 ^\.git
 ^Makefile$
 ^README\.html$
+^INSTALL$
 ^data/sim\.txt$
 ^data/soybean\.txt$
 ^demo/.*\.ini$
