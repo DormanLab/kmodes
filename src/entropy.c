@@ -266,7 +266,7 @@ int mask_nhash(data *dat, options *opt)
 #endif
 		if (opt->true_modes) {
 			unsigned int min_hd = UINT_MAX;
-#idef DEBUGGING_CODE
+#ifdef DEBUGGING_CODE
 			unsigned int chosen_k = 0;
 #endif
 
