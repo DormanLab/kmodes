@@ -1,0 +1,5 @@
+cd src
+cmake -S . -B build
+cd build
+make
+sudo cp run_kmodes /usr/local/bin
