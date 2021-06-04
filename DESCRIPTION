@@ -1,10 +1,15 @@
-Package: kmodes
 Type: Package
+Package: kmodes
 Title: Algorithsm for K-modes Categorical Data Clustering
 Version: 1.0
 Date: 2021-06-02
-Author: K. S. Dorman, Yudi Zhang
-Maintainer: K. S. Dorman <kdorman@iastate.edu>
+Authors@R: c(person("Karin S", "Dorman", role=c("aut","cre"),
+	email="kdorman@iastate.edu", comment=c(ORCID = "0000-0003-3650-0018")),
+	person("Yudi", "Zhang", role=c("aut"),
+	email = "yudiz@iastate.edu"))
+Author: Karin S Dorman, [aut, cre] <https://orcid.org/0000-0003-3650-0018>),
+	Yudi Zhang [aut]
+Maintainer: Karin S Dorman <kdorman@iastate.edu>
 Description: Implements several algorithm for k-modes, including Huang's algorithm [H97] and Hartigan and Wong's k-means algorithm adopted by Dorman & Maitra [DM21] for categorical data. Also implements several initialization methods. K-selection methods are available in the standalone command-line program.
 License: file LICENSE
 RoxygenNote: 7.1.1
@@ -13,4 +18,5 @@ RdMacros: Rdpack
 Suggests: mclust, rbenchmark
 Depends: 
     R (>= 2.10)
+Encoding: UTF-8
 LazyData: true

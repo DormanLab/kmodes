@@ -39,7 +39,7 @@ int process_arg_p(int argc, char const **argv, int *i, int j, options *opt);
 int simulate_data(data *dat, options *opt);
 int initialize_outfiles(data *dat, options * opt, FILE **in_fps, FILE **in_fpi);
 int select_k(data *dat, options *opt);
-int select_k_by_dm(data *dat, options *opt);
+int select_k_by_dm(options *opt);
 void write_status(data *dat, options *opt, FILE *fps, FILE *fpi, unsigned int i, double ar, double mi, double vi);
 #endif
 void update_status(data *dat, options *opt, FILE *fps, FILE *fpi, unsigned int i, TIME_STRUCT *start);
@@ -89,7 +89,7 @@ int main(int argc, const char **argv)
 		err = select_k(dat, opt);
 		goto CLEAR_AND_EXIT;
 	} else if (opt->select_k && opt->dm_method) {
-		err = select_k_by_dm(dat, opt);
+		err = select_k_by_dm(opt);
 		goto CLEAR_AND_EXIT;
 	}
 
@@ -2930,7 +2930,7 @@ void write_best_solution(data *dat, options *opt, FILE *fps)                /**/
 	}
 } /* write_best_solution */
 
-int select_k_by_dm(data *dat, options *opt)
+int select_k_by_dm(options *opt)
 {
 	int err = NO_ERROR;
 	int fxn_debug = ABSOLUTE_SILENCE;//DEBUG_I;//

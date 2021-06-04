@@ -1,8 +1,5 @@
 #!/usr/bin/Rscript
 
-#system("cd src && R CMD SHLIB -o kmodes_r.so *.c")
-#source("R/kmodes_r.R")
-
 data(sim)
 
 if (file.exists("/dev/urandom")) {

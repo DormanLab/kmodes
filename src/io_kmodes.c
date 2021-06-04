@@ -1,7 +1,15 @@
-#include "kmodes_r.h"
-#include "io.h"
+/**
+ * @file io_kmodes.c
+ * @author K. S. Dorman
+ *
+ * Input/output-related functions specific to k-modes package.
+ */
+
+#ifdef MATHLIB_STANDALONE
+
 #include "io_kmodes.h"
-#include "math.h"
+#include "io.h"
+#include "kmodes_r.h"
 #include "error.h"
 
 void fprint_data_ts(FILE *fp, data_t *v, size_t n, int width, int newline)
@@ -38,3 +46,7 @@ int fscan_data_ts(FILE *fp, data_t *v, size_t n)
 			return FILE_FORMAT_ERROR;
 	return NO_ERROR;
 } /* fscan_data_ts */
+
+#endif
+
+typedef int make_iso_compilers_happy;

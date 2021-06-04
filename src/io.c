@@ -1,3 +1,12 @@
+/**
+ * @file io.c
+ * @author K. S. Dorman
+ *
+ * Input/output-related functions.
+ */
+
+#ifdef MATHLIB_STANDALONE
+
 #include "io.h"
 #include "kmodes_r.h"
 #include "math.h"
@@ -240,3 +249,8 @@ void fprint_vectorized_uintmatrix(FILE *fp, unsigned int *mat, unsigned int n, u
 		kmodes_fprintf(fp, "\n");
 	}
 } /* fprint_vectorized_uintmatrix */
+
+#endif
+
+typedef int make_iso_compilers_happy;   /* ignore me */
+

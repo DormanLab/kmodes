@@ -13,6 +13,8 @@
  * option -DOLD_USAGE with gcc.
  */
 
+#ifdef MATHLIB_STANDALONE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -320,3 +322,8 @@ int is_numeric(const char *argv)
 			return 0;
 	return 1;
 }/* is_numeric */
+
+#endif
+
+typedef int make_iso_compilers_happy;	/* ignore me */
+
