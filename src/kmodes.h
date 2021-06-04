@@ -4,8 +4,6 @@
 #ifndef KMODES_H
 #define KMODES_H
 
-#include <stddef.h>
-
 #include "constants.h"
 
 /**

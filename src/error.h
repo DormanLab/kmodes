@@ -61,56 +61,45 @@ enum {	ABSOLUTE_SILENCE,	/*!< only output through files */
 extern int global_debug_level;
 
 int message(FILE *, const char *, const char *, int, int, int, const char *, ...);
+int r_message(const char *, const char *, int, int, int, const char *, ...);
 #ifdef USE_CURSES
 int wmessage(WINDOW *, const char *, const char *, int, int, int, const char *, ...);
 #endif
 
-#define CHECK_TIME(start_time, time_lim, file_name, fxn_name) {                \
-	errno = NO_ERROR;                                                      \
-	if ((time_lim) && difftime(time(NULL), (start_time)) > (time_lim)) {   \
-		message(stderr, (file_name), (fxn_name), __LINE__, ERROR_MSG,  \
-			OUT_OF_TIME, "", (time_lim));                          \
-		errno = OUT_OF_TIME;                                           \
-	}                                                                      \
-}
-
-#define CHECK_MEMORY(s_info, mem_lim, mem_new, file_name, fxn_name) {          \
-	errno = NO_ERROR;                                                      \
-	if ((mem_lim) && !sysinfo(&(s_info))) {                                \
-		unsigned long mem_b = ((s_info).totalram - (s_info).freeram)   \
-			* (s_info).mem_unit + (mem_new);                       \
-		if (mem_b > (mem_lim)) {                                       \
-			errno = MEMORY_USAGE_LIMIT;                            \
-			message(stderr, (file_name), (fxn_name), __LINE__,     \
-				ERROR_MSG, errno, "request for %.1"            \
-				DOUBLE_F_NFMT "Gb exceeds %.1" DOUBLE_F_NFMT   \
-				"Gb limit\n", (DOUBLE) mem_b / 1e9,            \
-				(DOUBLE) (mem_lim) / 1e9);                     \
-		}                                                              \
-	}                                                                      \
-}
-
-
 /**
- * Print a formatted message to stderr.
+ * Print a formatted message to stderr. Have to avoid stderr for R.
  */
+#ifdef MATHLIB_STANDALONE
 #define mmessage(type, err, ...) message(stderr, __FILE__, __func__,  __LINE__, (type), (err),  __VA_ARGS__)
+#else
+#define mmessage(type, err, ...) r_message(__FILE__, __func__,  __LINE__, (type), (err),  __VA_ARGS__)
+#endif
 
 /**
- * Conditionally print a formatted message to stderr.
+ * Conditionally print a formatted message to stderr. Kludge a solution for R.
  */
+#ifdef MATHLIB_STANDALONE
 #define debug_msg(condition, level, ...) do {                                  \
 	if ((condition) || ((level) && (level) <= global_debug_level))         \
 		message(stderr, __FILE__, __func__, __LINE__, level >= DEBUG_I \
 			? DEBUG_MSG : INFO_MSG, NO_ERROR, __VA_ARGS__);        \
 } while (0)
+#else
+#define debug_msg(condition, level, ...) do {                                  \
+	if ((condition) || ((level) && (level) <= global_debug_level)) {       \
+		kmodes_printf("%s [%s::%s(%4d)]: ", __FILE__, __func__,        \
+			__LINE__, level >= DEBUG_I ? DEBUG_MSG : INFO_MSG);    \
+		kmodes_printf(__VA_ARGS__);                                    \
+	}                                                                      \
+} while (0)
+#endif
 
 /**
  * Conditionally print a continuing message to stderr.
  */
 #define debug_msg_cont(condition, level, ...) do {                             \
 	if ((condition) || ((level) && (level) <= global_debug_level))         \
-		kmodes_fprintf(stderr, __VA_ARGS__);                           \
+		kmodes_eprintf(__VA_ARGS__);                                   \
 } while(0)
 
 /**

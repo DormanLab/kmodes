@@ -6,7 +6,7 @@
 
 # include "constants.h"
 # include "matrix_exponential.h"
-# include "r8lib.h"
+# include "r8slib.h"
 
 /******************************************************************************/
 
@@ -109,7 +109,10 @@ double *r8mat_expm1 ( int n, double a[] )
 /*
   E -> inverse(D) * E
 */
-  r8mat_minvm ( n, n, d, e, e );
+  if (!r8mat_minvm ( n, n, d, e, e )) {
+    free(e);
+    return NULL;
+  }
 /*
   E -> E^(2*S)
 */
@@ -124,6 +127,7 @@ double *r8mat_expm1 ( int n, double a[] )
 
   return e;
 }
+
 /******************************************************************************/
 
 double *r8mat_expm2 ( int n, double a[] )

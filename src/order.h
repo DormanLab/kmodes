@@ -13,14 +13,6 @@
 #ifndef __ORDER_H__
 #define __ORDER_H__
 
-#include <assert.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
-
-#include "constants.h"
-#include "math.h"
-#include "array.h"
 
 size_t *qorder_int(const int* base, size_t numElements);
 size_t *qorder_size_t(const size_t* base, size_t numElements);
@@ -73,7 +65,7 @@ int string_compare(const void *, const void *);
  */
 #define RETURN_RAND_CMP(a, b) if ((a) < (b)) { return -1; } \
 	else if ((a) > (b)) { return 1;}                    \
-	else if (rand()/RAND_MAX < 0.5) {return -1; }       \
+	else if (runif(0, 1) < 0.5) {return -1; }       \
 	else { return 1; }
 
 
@@ -166,11 +158,10 @@ void string_swap(void *, size_t, size_t);
 #define SWAP_double(a,b) {register double temp=(a);(a)=(b);(b)=temp;}
 #define SWAP_int(a,b) {register int temp=(a);(a)=(b);(b)=temp;}
 #define SWAP_size_t(a,b) {register size_t temp=(a);(a)=(b);(b)=temp;}
-#define SWAP_SIZE_T(a,b) {register SIZE_T temp=(a);(a)=(b);(b)=temp;}
 #define SWAP_string(a,b) {register char *temp=(a);(a)=(b);(b)=temp;}
 
 /* sorting that uses less memory, but requires C99 or greater standard */
-#if (defined C99 || defined C11)
+//#if (defined C99 || defined C11)
 
 /**
  * Comparison function for elements within an array of simple data types.
@@ -201,7 +192,7 @@ void select_int_with_index(int *, size_t *, size_t, size_t);
 void select_uint_with_index(unsigned int *, size_t *, size_t, size_t);
 void select_double_with_index(double *, size_t *, size_t, size_t);
 void reverse_select_double_with_index(double *, size_t *, size_t, size_t);
-SIZE_T select_index(double *, SIZE_T, SIZE_T, SIZE_T);
+size_t select_index(double *, size_t, size_t, size_t);
 
 
 /* some valid comparison functions */
@@ -215,7 +206,7 @@ int compare_ulong_elts(const void *, size_t *, size_t, size_t, va_list);
 int reverse_compare_double_elts(const void *, size_t *, size_t, size_t, va_list);
 int compare_string_elts(const void *, size_t *, size_t, size_t, va_list);
 
-#endif
+//#endif
 
 /* heap sort stuff */
 size_t *heap_order_double(double *array, size_t size, size_t first_k);

@@ -118,9 +118,16 @@ typedef unsigned char uint8_t;
 
 #else
 /* malloc failures result in lost memory, hash tables are unusable */
+#ifndef MATHLIB_STANDALONE
+#include <Rmath.h>
+#endif
 
 #ifndef uthash_fatal
+#ifdef MATHLIB_STANDALONE
 #define uthash_fatal(msg) exit(-1)        /* fatal OOM error */
+#else
+#define uthash_fatal(msg) error("[ERROR] Fatal error in uthash.h!\n")        /* fatal OOM error */
+#endif
 #endif
 
 #define HASH_RECORD_OOM(oomed) uthash_fatal("out of memory")
@@ -502,7 +509,11 @@ do {                                                                            
  * This is for uthash developer only; it compiles away if HASH_DEBUG isn't defined.
  */
 #ifdef HASH_DEBUG
+#ifdef MATHLIB_STANDALONE
 #define HASH_OOPS(...) do { fprintf(stderr,__VA_ARGS__); exit(-1); } while (0)
+#else
+#define HASH_OOPS(...) do { error(__VA_ARGS__); } while (0)
+#endif
 #define HASH_FSCK(hh,head,where)                                                 \
 do {                                                                             \
   struct UT_hash_handle *_thh;                                                   \

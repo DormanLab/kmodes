@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <Rmath.h>
 #include <limits.h>
 
 #include "sample.h"
@@ -13,7 +14,7 @@ void sample(unsigned int N, unsigned int n, unsigned int *idx)
 	double u;
 
 	while (m < n) {
-		u = (double) rand() / RAND_MAX;
+		u = runif(0, 1);
 
 		if ( (N - t)*u >= n - m )
 			++t;
@@ -53,7 +54,7 @@ int heap_sample(unsigned int n, unsigned int k, double *w, unsigned int *idx, un
 
 	/* sample k objects */
 	while (j < k) {
-		double r = rand() / (RAND_MAX + 1.);
+		double r = runif(0, 1);
 		double p = heap[1] * r, left;
 		unsigned int i = 1, chosen_idx;
 
@@ -100,7 +101,7 @@ void sample_vitter(unsigned int N, unsigned int n, unsigned int *idx)
 	double dn = (double) n;
 	double dN = (double) N;
 	double ninv = 1.0 / n;
-	double vprime = exp(log((double) rand() / RAND_MAX) * ninv);
+	double vprime = exp(log(runif(0, 1)) * ninv);
 	unsigned int qu1 = 1 + N - n;
 	double dqu1 = (double) qu1;
 	int nainv = -13.;	/* recommended by Vitter */
@@ -117,9 +118,9 @@ void sample_vitter(unsigned int N, unsigned int n, unsigned int *idx)
 				S = (int) X;
 				if (S < qu1)
 					break;
-				vprime = exp(log((double) rand() / RAND_MAX) * ninv);
+				vprime = exp(log(runif(0, 1)) * ninv);
 			} while (1);
-			U = (double) rand() / RAND_MAX;
+			U = runif(0, 1);
 			dnS = (double) -S;
 			y1 = exp(log(U * dN/dqu1) * nmin1inv);
 			vprime = y1 * (-X/dN + 1.) * (dqu1 / (dnS + dqu1));
@@ -140,10 +141,10 @@ void sample_vitter(unsigned int N, unsigned int n, unsigned int *idx)
 				bottom = bottom - 1.;
 			}
 			if (dN / (dN - X) >= y1 * exp(log(y2)*nmin1inv)) {
-				vprime = exp(log((double) rand() / RAND_MAX) * nmin1inv);
+				vprime = exp(log(runif(0, 1)) * nmin1inv);
 				break;
 			}
-			vprime = exp(log((double) rand() / RAND_MAX) * ninv);
+			vprime = exp(log(runif(0, 1)) * ninv);
 		} while (1);
 		idx[k++] = S;
 		N = (N - 1) - S;
@@ -158,7 +159,7 @@ void sample_vitter(unsigned int N, unsigned int n, unsigned int *idx)
 	if (n > 1) {
 		top = N - n;
 		while (n >= 2) {
-			V = (double) rand() / RAND_MAX;
+			V = runif(0, 1);
 			q = top / dN;
 			while (q > V) {
 				S = S + 1;
@@ -192,7 +193,7 @@ int random_sample(size_t N, size_t n,  size_t *D_idx, size_t *s_idx)
 	double u;
 
 	while (m < n) {
-		u = (double) rand() / RAND_MAX;
+		u = runif(0, 1);
 
 		if ( (N - t)*u >= n - m )
 			++t;

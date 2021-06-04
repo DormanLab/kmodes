@@ -4,14 +4,9 @@
  * implemention of hash table for DNA sequences
  */
 
-#include <string.h>
-#include <stddef.h>
-#include <stdlib.h>
-
 #include "uthash.h"
 #include "hash.h"
 #include "error.h"
-#include "array.h"
 
 /**
  * Build hash table for sequences.

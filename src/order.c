@@ -1,5 +1,5 @@
 /**
- * \file order.c
+ * @file order.c
  *
  * Routines that return a permutation of indices to put an array in sorted
  * order, like <a href="http://www.r-project.org">R</a>'s order function.
@@ -24,7 +24,14 @@
  * @date Sun Sep 11 14:43:36 CDT 2011
  */
 
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <assert.h>
+
 #include "order.h"
+#include "constants.h"
+#include "math.h"
 
 /*** BEGIN: Sorting with C library quicksort qsort() ***/
 
@@ -856,7 +863,7 @@ MAKE_HEAP_SORT_IN_SITU(size_t)
 /*** BEGIN: our second implementation of quicksort and quickselect ***/
 
 /* sorting that uses less memory, but requires C99 or greater standard */
-#if (defined C99 || defined C11)
+//#if (defined C99 || defined C11 || defined C17)
 size_t index_partition(void *, size_t *, CompareVectorElts, size_t, size_t, size_t, va_list);
 void vindex_quicksort(void *, size_t *, CompareVectorElts, size_t, size_t, va_list);
 void vindex_quickselect(void *, size_t *, CompareVectorElts, size_t, size_t, size_t, va_list);
@@ -1017,7 +1024,7 @@ index_quicksort(void *vec, CompareVectorElts compare,
 
 	/* we will actuall only sort indices */
 	last = right - left + 1;
-	MAKE_VECTOR(index, last);
+	index = malloc(last * sizeof(*index));
 
 	if (!index)
 		return NULL;
@@ -1362,17 +1369,17 @@ int reverse_compare_double_elts(const void *v, size_t *index, size_t left, size_
 
 /*** failed attempt at median algorithm ***/
 
-SIZE_T select_index(double *x, SIZE_T left, SIZE_T right, SIZE_T k);
-SIZE_T partition(double *x, SIZE_T left, SIZE_T right, SIZE_T idx);
+size_t select_index(double *x, size_t left, size_t right, size_t k);
+size_t partition(double *x, size_t left, size_t right, size_t idx);
 
-SIZE_T
-median_of_medians(double *x, SIZE_T left, SIZE_T right)
+size_t
+median_of_medians(double *x, size_t left, size_t right)
 {
-	SIZE_T i;
-	SIZE_T k = 2;
-	SIZE_T nmedians = (right - left) / 5;
-	SIZE_T sleft, sright;
-	SIZE_T med_idx;
+	size_t i;
+	size_t k = 2;
+	size_t nmedians = (right - left) / 5;
+	size_t sleft, sright;
+	size_t med_idx;
 	double d;
 
 /*
@@ -1397,20 +1404,20 @@ fprintf(stderr, "\n");
 	return select_index(x, left, left + nmedians, nmedians/2);
 } /* median_of_medians */
 
-SIZE_T
-select_index(double *vec, SIZE_T left, SIZE_T right, SIZE_T k)
+size_t
+select_index(double *vec, size_t left, size_t right, size_t k)
 {
-	SIZE_T pvt_idx, new_pvt_idx, pd;
+	size_t pvt_idx, new_pvt_idx, pd;
 
 /*
 fprintf(stderr, "select_index(%u, %u, %u): ", (unsigned)left, (unsigned)right, (unsigned)k);
-for (SIZE_T i = left; i <= right; i++)
+for (size_t i = left; i <= right; i++)
 fprintf(stderr, ", %f", vec[i]);
 fprintf(stderr, "\n");
 */
 
 	if (right - left <= 9) {
-		SIZE_T *order = order_double_quicksort(&vec[left], right - left + 1);
+		size_t *order = order_double_quicksort(&vec[left], right - left + 1);
 		pd = left + order[k];
 		free(order);
 //fprintf(stderr, "Returning %u\n", (unsigned)pd);
@@ -1437,10 +1444,10 @@ fprintf(stderr, "\n");
 	} while (1);
 } /* select_index */
 
-SIZE_T
-partition(double *x, SIZE_T left, SIZE_T right, SIZE_T idx)
+size_t
+partition(double *x, size_t left, size_t right, size_t idx)
 {
-	SIZE_T sidx, i;
+	size_t sidx, i;
 	double v = x[idx], d;
 
 //fprintf(stderr, "partition(%u, %u, %u) on %f\n", (unsigned)left, (unsigned)right, (unsigned)idx, v);
@@ -1467,4 +1474,4 @@ fprintf(stderr, "\n");
 	return sidx;
 } /* partition */
 
-#endif
+//#endif

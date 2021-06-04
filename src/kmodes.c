@@ -22,19 +22,20 @@
  * Adapted to kmodes.c by K. Dorman, Ames, IA, 6/17.
  */
 
-#include <float.h>
 #include <string.h>
-#include <stdlib.h>
-#include <math.h>
+#include <Rmath.h>
+
+//#define __KMODES_DEBUGGING__
 
 #include "kmodes.h"
 #include "array.h"
 #include "order.h"
 #include "error.h"
-#include "math.h"
-#include "io.h"
-#include "io_kmodes.h"
 #include "sample.h"
+#include "math.h"
+#ifdef __KMODES_DEBUGGING__
+#include "io_kmodes.h"
+#endif
 
 /* data allocation */
 size_t allocate_and_compute_category_counts(data_t **x, unsigned int n, unsigned int p, unsigned int K, int wgt);
@@ -77,7 +78,6 @@ int kmodes_init_random_seeds(data_t **x, unsigned int n, unsigned int p, unsigne
 int compare_data(data_t **x, unsigned int i, unsigned int j, unsigned int n);
 int compare_data_to_seed(data_t **x, unsigned int i, data_t *seed, unsigned int p);
 
-//#define __KMODES_DEBUGGING__
 #ifdef __KMODES_DEBUGGING__
 
 /* debugging functions */
@@ -1995,8 +1995,8 @@ int kmodes_init_random_from_partition(data_t **x, unsigned int n, unsigned int p
 
 		/* pick one seed from each cluster */
 		for (unsigned int k = 0; k < true_k; ++k) {
-			unsigned int j = (unsigned int)((double) rand()
-				/ RAND_MAX * nc[k]);
+			unsigned int j = (unsigned int) runif(0, nc[k]);
+
 			sidx[k] = j;
 			memcpy(seeds[k], x[j], p * sizeof **x);
 		}
@@ -2004,15 +2004,15 @@ int kmodes_init_random_from_partition(data_t **x, unsigned int n, unsigned int p
 		/* remainding seeds */
 		for (unsigned int k = true_k; k < K; ++k) {
 			/* select cluster with replacement */
-			unsigned int m = (unsigned int)((double) rand()
-				/ RAND_MAX * K);
-			if (m == K) --m;
+			unsigned int m = (unsigned int) runif(0, K);
+
+			if (m == K)
+				--m;
 
 			/* select distinct observation */
 			do {
 				same = 0;
-				sidx[k] = (unsigned int) ((double) rand()
-					/ RAND_MAX * nc[k]);
+				sidx[k] = (unsigned int) runif(0, nc[k]);
 				if (sidx[k] == nc[k]) --sidx[k];
 				for (unsigned l = 0; l < sidx[k]; ++l)
 					if (sidx[l] == sidx[k] ||
@@ -2027,11 +2027,13 @@ int kmodes_init_random_from_partition(data_t **x, unsigned int n, unsigned int p
 	} else if (K < true_k) {
 		/* select clusters without replacement */
 		unsigned int *sel_k = malloc(K * sizeof *sel_k);
+
 		sample(true_k, K, sel_k);
 		for (unsigned int k = 0; k < K; ++k) {
-			unsigned int j = (unsigned int)((double) rand()
-				/ RAND_MAX * nc[sel_k[k]]);
-			if (sidx) sidx[k] = j;
+			unsigned int j = (unsigned int) runif(0, nc[sel_k[k]]);
+
+			if (sidx)
+				sidx[k] = j;
 			memcpy(seeds[k], x[j], p * sizeof **x);
 		}
 		free(sel_k);
@@ -2068,7 +2070,7 @@ int kmodes_init_random_from_set(unsigned int K, unsigned int p,
 	unsigned int k = 0, t = 0;
 
 	while (k < K) {
-		double u = rand() / (RAND_MAX + 1.);
+		double u = runif(0, 1);
 
 		if ( (n_ss - t) * u >= K - k )
 			++t;
@@ -2162,7 +2164,7 @@ int kmodes_init_random_seeds(data_t **x, unsigned int n, unsigned int p, unsigne
 
 		do {
 			same = 0;
-			sidx[i] = (unsigned int) ((double) rand() / RAND_MAX * n);
+			sidx[i] = (unsigned int) runif(0, n);
                         for (unsigned int j = 0; j < i; ++j)
                                 /* sample without replacement */
                                 /* check for same or equal seeds */
@@ -2249,7 +2251,7 @@ int kmodes_init_h97(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 			/* select methodically from most frequent categories */
 			for (unsigned int j = 0, m = 0; j < p; ++j) {
 				if (rdm)
-					r = ((double) rand() / RAND_MAX * __nj[j]);
+					r = (unsigned int) runif(0, __nj[j]);
 				seeds[k][j] = idx[m + r];
 				m += __nj[j];
 				if (!rdm)
@@ -2333,7 +2335,8 @@ int kmodes_init_hd17(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 			/* select category by observed abundance */
 			for (unsigned int j = 0; j < p; ++j) {
 				data_t cat = 0;
-				r = (unsigned int) ((double) rand() / RAND_MAX * n);
+
+				r = (unsigned int) runif(0, n);
 				cfreq = __njc[j][(int) cat];
 				while (r > cfreq) {
 					cfreq += __njc[j][(int) ++cat];
@@ -2460,7 +2463,7 @@ int kmodes_init_clb09(data_t **x, unsigned int n, unsigned int p, unsigned int K
 	}
 
 	if (rdm == 2)
-		idx = (unsigned int) ((double) rand() / RAND_MAX * n);
+		idx = (unsigned int) runif(0, n);
 
 	/* first seed is most dense (or random) */
 	if (!k1){
@@ -2494,7 +2497,7 @@ int kmodes_init_clb09(data_t **x, unsigned int n, unsigned int p, unsigned int K
 
 		/* find most dense/distant observation... */
 		if (rdm) {
-			dtmp = ((double) rand() / RAND_MAX);
+			dtmp = runif(0, 1);
 			idx = 0;
 			max = __dens[idx] * __dis[idx];
 			while (dtmp > max / sum) {
@@ -2581,7 +2584,7 @@ kmodes_init_av07(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 			dmin = INFINITY;
 			m = 0;
 			do {
-                                i = (unsigned int) ((double) rand() / RAND_MAX * n);	/* TODO: allows multiple selections of same seed */
+                                i = (unsigned int) runif(0, n);	/* TODO: allows multiple selections of same seed */
 				dsum = 0;
 				for (l = 0; l < n; ++l) {
 					W[l] = hd(x[l], x[i], p, weight);
@@ -2604,7 +2607,7 @@ kmodes_init_av07(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 			dmin = INFINITY;
 			m = 0;
 			do {
-				r = dsum * ((double) rand() / RAND_MAX);
+				r = runif(0, dsum);
 				for (i = 0, dsum = 0;
 					(i < n) && (dsum < r);
 					dsum += W[i++]);

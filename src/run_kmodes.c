@@ -4,15 +4,17 @@
  *
  */
 
-#include <stdlib.h>
 #include <ctype.h>
-#include <math.h>
 #include <limits.h>
 #include <unistd.h>
 
 #include <Rmath.h>
 #ifndef MATHLIB_STANDALONE
 #include <R.h>
+#else
+#include "cmdline.h"
+#include "io.h"
+#include "io_kmodes.h"
 #endif
 
 //#define USE_CURSES
@@ -20,26 +22,27 @@
 
 #include "run_kmodes.h"
 #include "kmodes_r.h"
-#include "cmdline.h"
 #include "error.h"
-#include "io.h"
-#include "io_kmodes.h"
 #include "cluster.h"
 #include "timing_mach.h"
 #include "matrix_exponential.h"
 #include "order.h"
 #include "entropy.h"
 
-int parse_options(options *opt, int argc, const char **argv);
-int process_arg_p(int argc, char const **argv, int *i, int j, options *opt);
 int allocate_data_for_k(data *dat, unsigned int k);
 int finish_make_data(data *dat, options *opt);
-int simulate_data(data *dat, options *opt);
+#ifdef MATHLIB_STANDALONE
 int read_data(data *dat, options *opt);
 int read_modes(data *dat, options *opt);
+int parse_options(options *opt, int argc, const char **argv);
+int process_arg_p(int argc, char const **argv, int *i, int j, options *opt);
+int simulate_data(data *dat, options *opt);
 int initialize_outfiles(data *dat, options * opt, FILE **in_fps, FILE **in_fpi);
 int select_k(data *dat, options *opt);
 int select_k_by_dm(data *dat, options *opt);
+void write_status(data *dat, options *opt, FILE *fps, FILE *fpi, unsigned int i, double ar, double mi, double vi);
+#endif
+void update_status(data *dat, options *opt, FILE *fps, FILE *fpi, unsigned int i, TIME_STRUCT *start);
 void compute_costs(double *crit, double *var, double *size, unsigned int n, unsigned int K, double *cost, double *rrcost, double *krcost, double *sd, double *rsd, double *ksd);
 void compute_jump_stats(double cost, double rrcost, double krcost, double pcost, double prrcost, double pkrcost, double *jump, double *rjump, double *kjump, double Y, int reset);
 unsigned int count_initializations(FILE *fp);
@@ -47,7 +50,6 @@ int read_ini_data(FILE *fp, unsigned int *of_vals, double *t_vals, unsigned int 
 int restore_state(data *dat, options *opt);
 int shuffle_data(data *dat, options *opt);
 static inline int initialize(data *dat, options *opt);
-void write_status(data *dat, options *opt, FILE *fps, FILE *fpi, unsigned int i, TIME_STRUCT *start);
 void compute_summary(data *dat, options *opt);
 void write_best_solution(data *dat, options *opt, FILE *fps);
 static inline void stash_state(data *dat, options *opt);
@@ -103,6 +105,8 @@ int run_kmodes(data *dat, options *opt)
 {
 	int err = NO_ERROR;		/* error code */
 	TIME_STRUCT start;		/* timing */
+
+	GetRNGstate();
 
 #endif
 
@@ -203,17 +207,17 @@ int run_kmodes(data *dat, options *opt)
 		}
 		/* counts function call time ... oh well */
 #ifdef MATHLIB_STANDALONE
-		write_status(dat, opt, fps, fpi, i, &start);
+		update_status(dat, opt, fps, fpi, i, &start);
 #else
-		write_status(dat, opt, NULL, NULL, i, &start);
+		update_status(dat, opt, NULL, NULL, i, &start);
 #endif
 		/* record best solution */
 		if ((!err || err == KMODES_EXCEED_ITER_WARNING)
 			&& dat->total < dat->best_total) {
 			stash_state(dat, opt);
 		} else if (err) {
-			kmodes_fprintf(stderr, "[ERROR] %s (%d)\n",
-				kmodes_error(err), err);
+			kmodes_eprintf("[ERROR] %s (%d)\n",
+							kmodes_error(err), err);
 		}
 
 		if (opt->seconds > 0 && ELAP_TIME(&start) > opt->seconds) {
@@ -233,6 +237,7 @@ int run_kmodes(data *dat, options *opt)
 #else
 	free_kmodes();
 	free_cluster_statics();
+	PutRNGstate();
 	return(err);
 #endif
 
@@ -352,7 +357,7 @@ int initialize(data *dat, options *opt)
 					"Invalid algorithm in ini-kmodes.\n");
 
 			//if (opt->quiet > MINIMAL)
-				kmodes_fprintf(stdout, "Inner initialization %*u of "
+				kmodes_printf("Inner initialization %*u of "
 					"%u: %f (%f)\n", (int)
 					(log10(opt->n_inner_init) + 1), j,
 					opt->n_inner_init, dtmp, inner_total);
@@ -427,6 +432,7 @@ void stash_state(data *dat, options *opt)
  * @return		error status
  *
  */
+#ifdef MATHLIB_STANDALONE
 int restore_state(data *dat, options *opt)
 {
 	int fxn_debug = ABSOLUTE_SILENCE;//DEBUG_I;//
@@ -788,16 +794,14 @@ int initialize_outfiles(data *dat, options * opt, FILE **in_fps, FILE **in_fpi)
  * @param fps	solution file pointer
  * @param fpi	initialization file pointer
  * @param i	current initialization
- * @param start	epoch program started
+ * @param ar	adjusted RAND index for current solution
+ * @param mi	mutual information for current solution
+ * @param vi	variation information for current solution
  * @return	number of seconds spend in this function
  */
 void write_status(data *dat, options *opt, FILE *fps, FILE *fpi,            /**/
-	unsigned int i, TIME_STRUCT *start)
+	unsigned int i, double ar, double mi, double vi)
 {
-	TIME_STRUCT stop;	/* timing */
-
-	MARK_TIME(&stop);
-
 	/* output information about found solution to stdout */
 	if (opt->quiet >= MINIMAL)
 		kmodes_printf("Init %*u (%*u iterations):",
@@ -805,25 +809,67 @@ void write_status(data *dat, options *opt, FILE *fps, FILE *fpi,            /**/
 			? opt->n_init : i),
 			(int)(log10(dat->max_iter) + 1), dat->iter);
 
-	/* internal settings */
-	if (dat->iter > dat->max_iter)
-		dat->max_iter = dat->iter;
-
 	for (unsigned int k = 0; k < opt->K; ++k)
 		if (opt->quiet >= MINIMAL)
 			kmodes_printf(" %*.0f",
 					(int)(log10(dat->worst_cost) + 1),
 							dat->criterion[k]);
 
+	if (opt->quiet >= MINIMAL)
+		kmodes_printf(": %*.0f (%*.0f)", (int)(log10(dat->worst_cost)
+			+ 1), dat->total, (int)(log10(dat->worst_cost) + 1),
+			dat->best_total);
+
+	if (opt->true_cluster && opt->quiet >= MINIMAL)
+		kmodes_printf(" %.3f %.3f", mi, vi);
+
+	if ((opt->simulate || opt->true_cluster) && opt->quiet >= MINIMAL)
+		kmodes_printf(" %.3f (%.3f)", ar, dat->best_rand);
+	if (opt->quiet >= MINIMAL)
+		kmodes_printf("\n");
+
+	/* output initialization information */
+	if (fpi || fps) {
+		kmodes_fprintf(fpi ? fpi : fps, "%u %u", opt->seconds > 0 ? opt->n_init
+			: i, dat->iter);
+		fprint_doubles(fpi ? fpi : fps, dat->criterion, opt->K, 0, 0);
+		kmodes_fprintf(fpi ? fpi : fps, " %.0f %.0f", dat->total,
+			dat->best_total);
+		if (opt->simulate || opt->true_cluster)
+			kmodes_fprintf(fpi ? fpi : fps, " %f %f %f %f", ar,
+				dat->best_rand, mi, vi);
+	}
+
+} /* write_status */
+#endif
+
+/**
+ * Update status
+ *
+ * @param dat	data object
+ * @param opt	options object
+ * @param fps	solution file pointer
+ * @param fpi	initialization file pointer
+ * @param i	current initialization
+ * @param start	epoch program started
+ * @return	number of seconds spend in this function
+ */
+void update_status(data *dat, options *opt, FILE *fps, FILE *fpi,           /**/
+	unsigned int i, TIME_STRUCT *start)
+{
+	TIME_STRUCT stop;	/* timing */
+
+	MARK_TIME(&stop);
+
+	/* internal settings */
+	if (dat->iter > dat->max_iter)
+		dat->max_iter = dat->iter;
+
 	if (dat->worst_cost < dat->total)
 		dat->worst_cost = dat->total;
 	if (opt->seconds > 0 && dat->first_cost == 1)
 		dat->first_cost = dat->total;
 
-	if (opt->quiet >= MINIMAL)
-		kmodes_printf(": %*.0f (%*.0f)", (int)(log10(dat->worst_cost)
-			+ 1), dat->total, (int)(log10(dat->worst_cost) + 1),
-			dat->best_total);
 	dat->avg_cost += dat->total / (opt->seconds > 0 ? dat->first_cost
 			: (dat->n_init + opt->n_init));
 	dat->sd_cost += dat->total * dat->total / (opt->seconds > 0
@@ -843,8 +889,6 @@ void write_status(data *dat, options *opt, FILE *fps, FILE *fpi,            /**/
 		vi = mutual_information(dat->cluster_id, tc,
 			dat->n_observations, opt->K, tk,
 			NORMALIZED_VARIATION_OF_INFORMATION, NO_MI_SCALING);
-		if (opt->quiet >= MINIMAL)
-			kmodes_printf(" %.3f %.3f", mi, vi);
 		ar = cluster_index(dat->cluster_id, tc, dat->n_observations,
 			opt->K, tk, ADJUSTED_RAND_INDEX);
 		dat->avg_mi += mi;
@@ -853,23 +897,6 @@ void write_status(data *dat, options *opt, FILE *fps, FILE *fpi,            /**/
 		dat->sd_mi += mi * mi;
 		dat->sd_vi += vi * vi;
 		dat->sd_ar += ar * ar;
-	}
-
-	if ((opt->simulate || opt->true_cluster) && opt->quiet >= MINIMAL)
-		kmodes_printf(" %.3f (%.3f)", ar, dat->best_rand);
-	if (opt->quiet >= MINIMAL)
-		kmodes_printf("\n");
-
-	/* output initialization information */
-	if (fpi || fps) {
-		kmodes_fprintf(fpi ? fpi : fps, "%u %u", opt->seconds > 0 ? opt->n_init
-			: i, dat->iter);
-		fprint_doubles(fpi ? fpi : fps, dat->criterion, opt->K, 0, 0);
-		kmodes_fprintf(fpi ? fpi : fps, " %.0f %.0f", dat->total,
-			dat->best_total);
-		if (opt->simulate || opt->true_cluster)
-			kmodes_fprintf(fpi ? fpi : fps, " %f %f %f %f", ar,
-				dat->best_rand, mi, vi);
 	}
 
 	/* record information about times beating target */
@@ -884,13 +911,19 @@ void write_status(data *dat, options *opt, FILE *fps, FILE *fpi,            /**/
 	if ((opt->simulate || opt->true_cluster) && ar > dat->best_rand)
 		dat->best_rand = ar;
 
+#ifdef MATHLIB_STANDALONE
+	write_status(dat, opt, fpi, fps, i, ar, mi, vi);
+#endif
+
 	/* the rest is necessary bookkeeping */
 	dat->uncounted_seconds += ELAP_TIME(&stop);
 
+#ifdef MATHLIB_STANDALONE
 	if (fpi || fps)
 		kmodes_fprintf(fpi ? fpi : fps, " %f\n", ELAP_TIME(start) - dat->uncounted_seconds);
+#endif
 
-} /* write_status */
+} /* update_status */
 
 
 /**
@@ -918,9 +951,9 @@ int make_options(options **opt) {
 	(*opt)->shuffle = 0;
 	(*opt)->kmodes_algorithm = KMODES_HUANG;
 	(*opt)->init_method = KMODES_INIT_RANDOM_SEEDS;
-    (*opt)->perturb_selection = KMODES_PERTURB_HD;
-    (*opt)->n_perturb = 0;
-    (*opt)->inner_perturb = 0;
+	(*opt)->perturb_selection = KMODES_PERTURB_HD;
+	(*opt)->n_perturb = 0;
+	(*opt)->inner_perturb = 0;
 	(*opt)->continue_run = 0;
 	(*opt)->select_k = 0;
 	(*opt)->dm_method = 0;
@@ -934,6 +967,7 @@ int make_options(options **opt) {
 	(*opt)->use_hartigan = 0;
 	(*opt)->target = 0;
 	(*opt)->seed = 0;
+	(*opt)->seed2 = 0;
 	(*opt)->seed_idx = NULL;
 	(*opt)->seed_set = NULL;
 	(*opt)->n_sd_idx = 0;
@@ -979,6 +1013,7 @@ int make_options(options **opt) {
  * @param argv	command-line arguments
  * @return	error status
  */
+#ifdef MATHLIB_STANDALONE
 int parse_options(options *opt, int argc, const char **argv)
 {
 	int fxn_debug = ABSOLUTE_SILENCE;
@@ -1278,10 +1313,12 @@ int parse_options(options *opt, int argc, const char **argv)
 			} else {
 				opt->seed = read_uint(argc, argv, ++i,
 					(void *)opt);
-				srand(opt->seed);
+				if (i + 1 < argc && argv[i+1][0] != '-')
+					opt->seed2 = read_uint(argc, argv, ++i,
+								(void *)opt);
 				debug_msg(MINIMAL <= fxn_debug,
-					opt->quiet, "Seed: "
-					"%lu\n", opt->seed);
+					opt->quiet, "Seed(s): "
+					"%lu %lu\n", opt->seed, opt->seed2);
 			}
 			if (errno)
 				goto CMDLINE_ERROR;
@@ -1449,6 +1486,8 @@ int parse_options(options *opt, int argc, const char **argv)
 			"provide the name of a data file:  See option -f.\n");
 	}
 
+	set_seed(opt->seed, opt->seed2);
+
 	return err;
 
 CMDLINE_ERROR:
@@ -1457,6 +1496,7 @@ CMDLINE_ERROR:
 		i--;
 	}
 	usage_error(argv, i, (void *)opt);
+
 	return err;
 } /* parse_options */
 
@@ -1532,6 +1572,7 @@ int process_arg_p(int argc, char const **argv, int *i, int j, options *opt)
 
 	return NO_ERROR;
 } /* process_arg_p */
+#endif
 
 
 /**
@@ -1796,6 +1837,7 @@ void free_data_for_k(data *dat, options *opt)
  * @param opt	pointer to options object
  * @return	error status
  */
+#ifdef MATHLIB_STANDALONE
 int read_data(data *dat, options *opt)
 {
 	int fxn_debug = ABSOLUTE_SILENCE;
@@ -1898,6 +1940,7 @@ int read_data(data *dat, options *opt)
 
 	return err;
 } /* read_data */
+#endif
 
 
 /**
@@ -1966,6 +2009,7 @@ int drop_empty_clusters(data *dat, options *opt)
  * @param opt	options object
  * @return	error status
  */
+#ifdef MATHLIB_STANDALONE
 int read_modes(data *dat, options *opt)
 {
 	unsigned int mode_K = 0;
@@ -2077,6 +2121,7 @@ int read_modes(data *dat, options *opt)
 
 	return NO_ERROR;
 } /* read_modes */
+#endif
 
 
 /**
@@ -2133,6 +2178,7 @@ int fix_categories(data *dat, options *opt)
 	}
 
 	/* write modes (presumably after conversion above) */
+#ifdef MATHLIB_STANDALONE
 	if (opt->mfile_out) {
 		FILE *fp = fopen(opt->mfile_out, "w");
 
@@ -2145,6 +2191,7 @@ int fix_categories(data *dat, options *opt)
 				dat->n_coordinates, 0, 1);
 		fclose(fp);
 	}
+#endif
 
 	return NO_ERROR;
 } /* fix_categories */
@@ -2157,6 +2204,7 @@ int fix_categories(data *dat, options *opt)
  * @param opt	pointer to options object
  * @return	error status
  */
+#ifdef MATHLIB_STANDALONE
 int simulate_data(data *dat, options *opt)
 {
 	int fxn_debug = ABSOLUTE_SILENCE;
@@ -2222,12 +2270,14 @@ int simulate_data(data *dat, options *opt)
 	do {
 		/* simulate modes */
 		for (unsigned int j = 0; j < dat->n_coordinates; ++j) {
-			data_t c_ancestor = (data_t) ((double) rand() / RAND_MAX
-				* opt->sim_n_categories);
+			data_t c_ancestor = (data_t) runif(0,
+							opt->sim_n_categories);
+
 			/* simulate ancestor character */
 			for (k = 0; k < opt->sim_K; ++k) {
-				double r = (double) rand() / RAND_MAX;
+				double r = runif(0, 1);
 				data_t l = 0;
+
 				for (dsum = Pt[c_ancestor*opt->sim_n_categories];
 					dsum < r; dsum += Pt[c_ancestor
 						* opt->sim_n_categories + ++l]);
@@ -2316,12 +2366,8 @@ int simulate_data(data *dat, options *opt)
 		/* simulate pi */
 		if (opt->sim_alpha) {
 			/* this is the only place the R rng is used */
-#ifdef MATHLIB_STANDALONE
-			set_seed(rand(), rand());
-#else
-			GetRNGstate();
-#endif
 			double sum = 0;
+
 			for (k = 0; k < opt->sim_K; ++k) {
 				opt->sim_pi[k] = rgamma(opt->sim_alpha[k], 1.0);
 				sum += opt->sim_pi[k];
@@ -2330,12 +2376,9 @@ int simulate_data(data *dat, options *opt)
 				opt->sim_pi[k] /= sum;
 			debug_msg(QUIET <= fxn_debug, opt->quiet, "Simulated "
 									"pi: ");
-			if (QUIET <= opt->quiet)
+			debug_call(QUIET <= opt->quiet, opt->quiet,
 				fprint_doubles(stderr, opt->sim_pi, opt->sim_K,
-					3, 1);
-#ifndef MATHLIB_STANDALONE
-			PutRNGstate();
-#endif
+								3, 1));
 		}
 
 		for (unsigned int k = 0; k < opt->true_K; ++k)
@@ -2345,17 +2388,18 @@ int simulate_data(data *dat, options *opt)
 		for (unsigned int i = 0; i < dat->n_observations; ++i) {
 
 			/* choose cluster */
-			double r = (double) rand() / RAND_MAX;
+			double r = runif(0, 1);
+
 			for (k = 0, dsum = opt->sim_pi[0];
 				dsum < r; dsum += opt->sim_pi[++k]);
 			opt->sim_cluster[i] = k;
 			++opt->true_cluster_size[k];
 			for (unsigned int j = 0; j < dat->n_coordinates; ++j) {
 				data_t c_ancestor = opt->sim_modes[k][j];
+				data_t l = 0;
 
 				/* choose coordinate */
-				r = (double) rand() / RAND_MAX;
-				data_t l = 0;
+				r = runif(0, 1);
 				for (dsum = Pt[c_ancestor*opt->sim_n_categories];
 					dsum < r; dsum += Pt[c_ancestor
 						* opt->sim_n_categories + ++l]);
@@ -2401,6 +2445,7 @@ ABORT_SIMULATE_DATA:
 
 	return err;
 } /* simulate_data */
+#endif
 
 
 /**
@@ -2412,31 +2457,38 @@ ABORT_SIMULATE_DATA:
  */
 int finish_make_data(data *dat, options *opt)
 {
+	unsigned int n = dat->n_observations;
+	unsigned int p = dat->n_coordinates;
+	data_t *rptr = dat->data;
 	int fxn_debug = ABSOLUTE_SILENCE;
 
-	dat->dmat = malloc(dat->n_observations * sizeof(*dat->dmat));
-	data_t *rptr = dat->data;
-	for (unsigned int i = 0; i < dat->n_observations; i++) {
+	dat->dmat = malloc(n * sizeof(*dat->dmat));
+	if (!dat->dmat)
+		return mmessage(ERROR_MSG, MEMORY_ALLOCATION, "data::dmat");
+
+	for (unsigned int i = 0; i < n; i++) {
 		dat->dmat[i] = rptr;
-		rptr += dat->n_coordinates;
+		rptr += p;
 	}
 	if (fxn_debug)
-		mmessage(DEBUG_MSG, NO_ERROR, "Allocated %dx%d data matrix\n",
-			dat->n_observations, dat->n_coordinates);
+		mmessage(DEBUG_MSG, NO_ERROR,
+					"Allocated %dx%d data matrix\n", n, p);
 
 	if (opt->data_outfile) {
 		FILE *fp = fopen(opt->data_outfile, "w");
 		if (!fp)
 			return mmessage(ERROR_MSG, FILE_OPEN_ERROR,
 				opt->data_outfile);
-		for (unsigned int i = 0; i < dat->n_observations; ++i) {
+		for (unsigned int i = 0; i < n; ++i) {
 			if (opt->true_column < UINT_MAX)
 				kmodes_fprintf(fp, "%u", opt->true_cluster[i]);
-			for (unsigned int j = 0; j < dat->n_coordinates; ++j)
+			for (unsigned int j = 0; j < p; ++j)
 				if (opt->true_column < UINT_MAX || j)
-					kmodes_fprintf(fp, " %u", dat->dmat[i][j]);
+					kmodes_fprintf(fp, " %u",
+							dat->dmat[i][j]);
 				else
-					kmodes_fprintf(fp, "%u", dat->dmat[i][j]);
+					kmodes_fprintf(fp, "%u",
+							dat->dmat[i][j]);
 			kmodes_fprintf(fp, "\n");
 		}
 		fclose(fp);
@@ -2446,14 +2498,12 @@ int finish_make_data(data *dat, options *opt)
 	}
 
 	if (opt->shuffle) {
-		dat->obsn_idx = malloc(dat->n_observations
-						* sizeof(*dat->obsn_idx));
-		dat->best_obsn_idx = malloc(dat->n_observations
-						* sizeof(*dat->obsn_idx));
+		dat->obsn_idx = malloc(n * sizeof(*dat->obsn_idx));
+		dat->best_obsn_idx = malloc(n * sizeof(*dat->obsn_idx));
 		if (!dat->obsn_idx || !dat->best_obsn_idx)
 			return mmessage(ERROR_MSG, MEMORY_ALLOCATION,
 				"data:obsn_idx");
-		for (unsigned int i = 0; i < dat->n_observations; ++i)
+		for (unsigned int i = 0; i < n; ++i)
 			dat->obsn_idx[i] = i;
 	}
 
@@ -2484,13 +2534,13 @@ int finish_make_data(data *dat, options *opt)
 				"data::ini_*");
 	}
 
-	data_t *tmp1 = malloc(opt->K * dat->n_coordinates * sizeof(**dat->seeds));
-	data_t *tmp2 = malloc(opt->K * dat->n_coordinates * sizeof(**dat->seeds));
+	data_t *tmp1 = malloc(opt->K * p * sizeof(**dat->seeds));
+	data_t *tmp2 = malloc(opt->K * p * sizeof(**dat->seeds));
 	data_t *tmp3 = NULL;
 	if (!tmp1 || !tmp2)
 		return mmessage(ERROR_MSG, MEMORY_ALLOCATION, "data::seeds");
 	if (opt->n_inner_init > 1) {
-		tmp3 = malloc(opt->K * dat->n_coordinates * sizeof(**dat->seeds));
+		tmp3 = malloc(opt->K * p * sizeof(**dat->seeds));
 		if (!tmp3)
 			return mmessage(ERROR_MSG, MEMORY_ALLOCATION,
 				"data::ini_seeds");
@@ -2498,17 +2548,18 @@ int finish_make_data(data *dat, options *opt)
 	for (unsigned int i = 0; i < opt->K; i++) {
 		dat->seeds[i] = tmp1;
 		dat->best_modes[i] = tmp2;
-		tmp1 += dat->n_coordinates;
-		tmp2 += dat->n_coordinates;
+		tmp1 += p;
+		tmp2 += p;
 		if (opt->n_inner_init > 1) {
 			dat->ini_seeds[i] = tmp3;
-			tmp3 += dat->n_coordinates;
+			tmp3 += p;
 		}
 	}
 
+#ifdef MATHLIB_STANDALONE
 	if (opt->pfile) {
 		FILE *fp = fopen(opt->pfile, "r");
-		for (unsigned int i = 0; i < dat->n_observations; ++i) {
+		for (unsigned int i = 0; i < n; ++i) {
 			if (fscanf(fp, "%u", &dat->cluster_id[i]) != 1) {
 				fclose(fp);
 				return mmessage(ERROR_MSG, FILE_FORMAT_ERROR,
@@ -2545,8 +2596,7 @@ int finish_make_data(data *dat, options *opt)
 		data_t **seeds = dat->seeds;
 		/* allocate space for seed set */
 		if (opt->n_seed_set > opt->K) {
-			data_t *tmp = malloc(opt->n_seed_set
-					* dat->n_coordinates * sizeof(*tmp));
+			data_t *tmp = malloc(opt->n_seed_set * p * sizeof(*tmp));
 			opt->seed_set = malloc(opt->n_seed_set
 						* sizeof(*opt->seed_set));
 			if (!tmp || !opt->seed_set)
@@ -2554,7 +2604,7 @@ int finish_make_data(data *dat, options *opt)
 					"options:seed_set");
 			for (unsigned int k = 0; k < opt->n_seed_set; ++k) {
 				opt->seed_set[k] = tmp;
-				tmp += dat->n_coordinates;
+				tmp += p;
 			}
 			seeds = opt->seed_set;
 			opt->init_method = KMODES_INIT_RANDOM_FROM_SET;
@@ -2575,14 +2625,13 @@ int finish_make_data(data *dat, options *opt)
 
 		rewind(fp);
 		for (unsigned int k = 0; k < opt->n_seed_set; ++k) {
-			if (fscan_data_ts(fp, seeds[k], dat->n_coordinates)) {
+			if (fscan_data_ts(fp, seeds[k], p)) {
 				fclose(fp);
 				return mmessage(ERROR_MSG, FILE_FORMAT_ERROR,
 					opt->sfile);
 			}
 			if (opt->subtract_one)
-				for (unsigned int j = 0; j < dat->n_coordinates;
-					++j) {
+				for (unsigned int j = 0; j < p; ++j) {
 					if (seeds[k][j] == 0)
 						return mmessage(ERROR_MSG,
 							INVALID_USER_INPUT,
@@ -2595,27 +2644,27 @@ int finish_make_data(data *dat, options *opt)
 				}
 			if (dat->ini_seeds && opt->n_seed_set  < opt->K)
 				memcpy(dat->ini_seeds[k], seeds[k],
-					dat->n_coordinates * sizeof **seeds);
+							p * sizeof **seeds);
 		}
 		fclose(fp);
 	}
+#endif
 
 	/*
-	for (unsigned int i = 0; i < dat->n_observations; ++i) {
+	for (unsigned int i = 0; i < n; ++i) {
 		unsigned int n_identical = 0;
-		for (unsigned int j = 0; j < dat->n_observations; ++j) {
+		for (unsigned int j = 0; j < n; ++j) {
 			unsigned int l = 0;
-			for (; l < dat->n_coordinates; ++l)
-				if (dat->data[i*dat->n_observations + l]
-					!= dat->data[j*dat->n_observations + l])
+			for (; l < p; ++l)
+				if (dat->data[i*n + l]
+					!= dat->data[j*n + l])
 					break;
-			if (l == dat->n_coordinates)
+			if (l == p)
 				n_identical++;
 		}
-		if (n_identical > dat->n_observations - 7)
-			kmodes_fprintf(stderr, "Read %u identical to %u (of %u [%u])"
-				"others\n", i, n_identical, dat->n_observations,
-						dat->n_observations - 7);
+		if (n_identical > n - 7)
+			kmodes_fprintf(stderr, "Read %u identical to %u (of %u "
+				"[%u]) others\n", i, n_identical, n, n - 7);
 	}
 	*/
 
@@ -2628,26 +2677,19 @@ int finish_make_data(data *dat, options *opt)
  * in input order for initialization, and many of the real datasets are ordered
  * by class, it is important to randomize this aspect of the data.
  *
- * See https://stackoverflow.com/questions/3343797/is-this-c-implementation-of-fisher-yates-shuffle-correct
- * and https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
+ * See https://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle
  *
  * @param dat	data pointer
  * @return	error status
  */
 int shuffle_data(data *dat, options *opt)
 {
-	if (dat->n_observations > RAND_MAX)
-		return mmessage(ERROR_MSG, INTERNAL_ERROR, "Data set too big!");
-	long n = (long) dat->n_observations;
-	long i, j, lim;
+	unsigned int n = dat->n_observations;
+	unsigned int i, j;
 	data_t *dptr;
 
 	for (i = n - 1; i > 0; --i) {
-		lim = RAND_MAX - RAND_MAX % (i + 1);
-		do {
-			j = rand();
-		} while (j >= lim);
-		j = j % (i + 1);
+		j = runif(0, i + 1);
 
 		dptr = dat->dmat[j];
 		dat->dmat[j] = dat->dmat[i];
@@ -2734,100 +2776,99 @@ void compute_summary(data *dat, options *opt)                               /**/
  * @param fps	solution file pointer
  * @param fpi	initialization file pointer
  */
+#ifdef MATHLIB_STANDALONE
 void write_best_solution(data *dat, options *opt, FILE *fps)                /**/
 {
 	/* report best solution to stdout and outfile */
 	if (dat->n_init) {
 		if (opt->seconds > 0) {
 			if (opt->quiet >= QUIET)
-				kmodes_printf("Cost scaling factor: %f\n",
+				printf("Cost scaling factor: %f\n",
 					dat->first_cost);
 			else
-				kmodes_fprintf(fps, "Cost scaling factor: %f\n",
+				fprintf(fps, "Cost scaling factor: %f\n",
 					dat->first_cost);
 		}
 		if (opt->quiet >= QUIET)
-			kmodes_printf("Maximum cost: %.0f\n", dat->worst_cost);
+			printf("Maximum cost: %.0f\n", dat->worst_cost);
 		else
-			kmodes_fprintf(fps, "Maximum cost: %.0f\n",
-							dat->worst_cost);
+			fprintf(fps, "Maximum cost: %.0f\n", dat->worst_cost);
 		if (opt->quiet >= QUIET) {
-			kmodes_printf("Best optimized criterion: %.0f",
-				dat->best_total);
+			printf("Best optimized criterion: %.0f",
+							dat->best_total);
 			fprint_doubles(stdout, dat->best_criterion, opt->K, 0,
 				1);
 		}
 		if (fps) {
-			kmodes_fprintf(fps, "Best optimized criterion: %.0f\n",
-				dat->best_total);
+			fprintf(fps, "Best optimized criterion: %.0f\n",
+							dat->best_total);
 			fprint_doubles(fps, dat->best_criterion, opt->K, 0, 1);
 		}
 		if (opt->simulate || opt->true_cluster) {
 			if (opt->quiet >= QUIET)
-				kmodes_printf("Maximum AR: %f\n", dat->best_rand);
+				printf("Maximum AR: %f\n", dat->best_rand);
 			if (fps)
-				kmodes_fprintf(fps, "Maximum AR: %f\n", dat->best_rand);
+				fprintf(fps, "Maximum AR: %f\n", dat->best_rand);
 		}
 		if (opt->quiet >= QUIET && opt->K > 0) {
-			kmodes_printf("Best cluster sizes:");
+			printf("Best cluster sizes:");
 			fprint_uints(stdout, dat->best_cluster_size, opt->K,
 				(int)(log10(dat->n_observations) + 1), 1);
 		}
 		if (fps && opt->K > 0) {
-			kmodes_fprintf(fps, "Best cluster sizes:");
+			fprintf(fps, "Best cluster sizes:");
 			fprint_uints(fps, dat->best_cluster_size, opt->K, 0, 1);
 		}
 		if (opt->quiet >= QUIET && opt->K > 0 &&
 			opt->init_method < KMODES_INIT_NUMBER_RANDOM_METHODS) {
 
-			kmodes_printf("Best solution originating seeds:");
+			printf("Best solution originating seeds:");
 			fprint_uints(stdout, dat->best_seed_idx, opt->K,
 				(int)(log10(dat->n_observations) + 1), 1);
 		}
 		if (fps && opt->K > 0 && opt->init_method
 			< KMODES_INIT_NUMBER_RANDOM_METHODS) {
 
-			kmodes_fprintf(fps, "Best solution originating seeds:");
+			fprintf(fps, "Best solution originating seeds:");
 			fprint_uints(fps, dat->best_seed_idx, opt->K, 0, 1);
 		}
 		if (fps && opt->K > 0) {
-			kmodes_printf("Best solution cluster assignments:\n");
+			printf("Best solution cluster assignments:\n");
 			fprint_uints(fps, dat->best_cluster_id,
 				dat->n_observations, 0, 1);
-			kmodes_fprintf(fps, "\n");
+			fprintf(fps, "\n");
 		}
 		if (fps && opt->K > 0 && opt->shuffle) {
-			kmodes_fprintf(fps, "Best solution indexing:\n");
+			fprintf(fps, "Best solution indexing:\n");
 			fprint_uints(fps, dat->best_obsn_idx,
 				dat->n_observations, 0, 1);
-			kmodes_fprintf(fps, "\n");
+			fprintf(fps, "\n");
 		}
 		if (opt->quiet >= QUIET)
-			kmodes_printf("Best modes:\n");
+			printf("Best modes:\n");
 		for (unsigned int k = 0; k < opt->K; ++k) {
 			for (unsigned int j = 0; j < dat->n_coordinates; ++j)
 				if (opt->quiet >= QUIET)
-					kmodes_printf(" %*"
-						KMODES_PRIu_data_t, (int)
+					printf(" %*" KMODES_PRIu_data_t, (int)
 						(log10(dat->n_categories[j] -
 						(dat->n_categories[j]>1)) + 1),
 						(unsigned int)
 						dat->best_modes[k][j]);
 			if (opt->quiet >= QUIET)
-				kmodes_printf("\n");
+				printf("\n");
 		}
 		if (fps) {
-			kmodes_fprintf(fps, "Best modes:\n");
+			fprintf(fps, "Best modes:\n");
 			for (unsigned int k = 0; k < opt->K; ++k)
 				fprint_data_ts(fps, dat->best_modes[k],
 					dat->n_coordinates, 0, 1);
 		}
 		if (opt->true_modes) {
 			if (opt->quiet >= QUIET)
-				kmodes_printf("Distance matrix between true "
+				printf("Distance matrix between true "
 					"and best modes:\n");
 			if (fps)
-				kmodes_fprintf(fps, "Distance matrix between true and "
+				fprintf(fps, "Distance matrix between true and "
 					"best modes:\n");
 			for (unsigned int k = 0; k < opt->true_K; ++k) {
 				for (unsigned int i = 0; i < opt->K; ++i) {
@@ -2837,55 +2878,55 @@ void write_best_solution(data *dat, options *opt, FILE *fps)                /**/
 						cnt += (dat->best_modes[i][j]
 							!= opt->true_modes[k][j]);
 					if (opt->quiet >= QUIET)
-						kmodes_printf(" %*u", (int)
+						printf(" %*u", (int)
 							ceil(log10(dat->n_coordinates + 1)),
 							cnt);
 					if (fps)
-						kmodes_fprintf(fps, " %u", cnt);
+						fprintf(fps, " %u", cnt);
 				}
 				if (opt->quiet >= QUIET)
-					kmodes_printf("\n");
+					printf("\n");
 				if (fps)
-					kmodes_fprintf(fps, "\n");
+					fprintf(fps, "\n");
 			}
 		}
 	}
 	if (dat->ntimes > 1) {
 		if (opt->quiet >= QUIET)
-			kmodes_printf("Time to better: %f +/- %f; times=%u\n",
+			printf("Time to better: %f +/- %f; times=%u\n",
 				dat->avg_time, dat->sd_time, dat->ntimes);
 		if (fps)
-			kmodes_fprintf(fps, "Time to better: %f +/- %f; times=%u\n",
+			fprintf(fps, "Time to better: %f +/- %f; times=%u\n",
 				dat->avg_time, dat->sd_time, dat->ntimes);
 	}
 
 	if (dat->n_init) {
 		if (opt->quiet > ABSOLUTE_SILENCE)
-			kmodes_printf("%.0f %f %f %f %f", dat->best_total,
+			printf("%.0f %f %f %f %f", dat->best_total,
 				dat->avg_iter, dat->sd_iter, dat->avg_cost,
 				dat->sd_cost);
 		if (fps)
-			kmodes_fprintf(fps, "%.0f %f %f %f %f", dat->best_total,
+			fprintf(fps, "%.0f %f %f %f %f", dat->best_total,
 				dat->avg_iter, dat->sd_iter, dat->avg_cost,
 				dat->sd_cost);
 		if (opt->simulate || opt->true_cluster) {
 			if (opt->quiet > ABSOLUTE_SILENCE)
-				kmodes_printf(" %f %f %f %f %f %f",
+				printf(" %f %f %f %f %f %f",
 					dat->avg_ar, dat->sd_ar, dat->avg_mi,
 					dat->sd_mi, dat->avg_vi, dat->sd_vi);
 			if (fps)
-				kmodes_fprintf(fps, " %f %f %f %f %f %f", dat->avg_ar,
+				fprintf(fps, " %f %f %f %f %f %f", dat->avg_ar,
 					dat->sd_ar, dat->avg_mi, dat->sd_mi,
 					dat->avg_vi, dat->sd_vi);
 		}
 		if (opt->quiet > ABSOLUTE_SILENCE)
-			kmodes_printf(" %f", dat->seconds);
+			printf(" %f", dat->seconds);
 		if (fps)
-			kmodes_fprintf(fps, " %f", dat->seconds);
+			fprintf(fps, " %f", dat->seconds);
 		if (opt->quiet > ABSOLUTE_SILENCE)
-			kmodes_printf(" %u\n", dat->n_init);
+			printf(" %u\n", dat->n_init);
 		if (fps)
-			kmodes_fprintf(fps, " %u\n", dat->n_init);
+			fprintf(fps, " %u\n", dat->n_init);
 	}
 } /* write_best_solution */
 
@@ -3026,7 +3067,7 @@ int select_k_by_dm(data *dat, options *opt)
 
 		double ratio = avg_utime / avg_ntime;
 
-		kmodes_printf("K = %u: ratio = %5.3f (%.3e / %.3e)\n",
+		printf("K = %u: ratio = %5.3f (%.3e / %.3e)\n",
 					opt->K, ratio, avg_utime, avg_ntime);
 
 		if (ratio > max_dm) {
@@ -3048,10 +3089,11 @@ RETURN_SELECT_K_BY_DM:
 
 	}
 
-	kmodes_printf("Daneel method selects K = %u.\n", max_K_dm);
+	printf("Daneel method selects K = %u.\n", max_K_dm);
 
 	return NO_ERROR;
 } /* select_k_by_dm */
+#endif
 
 int read_ini_data(FILE *fp, unsigned int *of_vals, double *t_vals,
 					unsigned int *nini, options *opt)
@@ -3140,6 +3182,7 @@ unsigned int count_initializations(FILE *fp)
  * @param opt	options object pointer
  * @return	error status
  */
+#ifdef MATHLIB_STANDALONE
 int select_k(data *dat, options *opt)
 {
 	int fxn_debug = ABSOLUTE_SILENCE;//DEBUG_I;//
@@ -3300,6 +3343,7 @@ int select_k(data *dat, options *opt)
 		/* bootstrap hd */
 		double jmu = 0, rjmu = 0, kjmu = 0;
 		double jvar = 0, rjvar = 0, kjvar = 0;
+
 		for (unsigned i = 0; i < opt->n_bootstrap; ++i) {
 			debug_msg(DEBUG_II <= fxn_debug, fxn_debug,
 							"BOOTSTRAP %u\n", i);
@@ -3313,14 +3357,10 @@ int select_k(data *dat, options *opt)
 				pasize[k] = 0.;
 			}
 			for (unsigned int j = 0; j < dat->n_observations; ++j) {
-				long lim = RAND_MAX - RAND_MAX % dat->n_observations;
-				long rnd;
-				do {
-					rnd = rand();
-				} while (rnd >= lim);
-				rnd = rnd % dat->n_observations;
+				unsigned int rnd = (unsigned int) runif(0, dat->n_observations);
 				double tmp1 = obsn_hd[rnd] / obsn_cnt_sum[rnd];
 				double tmp2 = 1. / obsn_cnt_sum[rnd];
+
 				for (unsigned k = 0; k < opt->K; ++k)
 					if (obsn_cnt[rnd][k]) {
 						asize[k] += tmp2;
@@ -3464,6 +3504,7 @@ int select_k(data *dat, options *opt)
 
 	return err;
 } /* select_k */
+#endif
 
 
 /**
@@ -3545,7 +3586,7 @@ void compute_jump_stats(double cost, double rrcost, double krcost,
 		factor = cost/2.;
 		rfactor = rrcost/2.;
 		kfactor = krcost/2.;
-		kmodes_fprintf(stdout, "factor=%f, rfactor=%f, kfactor=%f\n", factor, rfactor, kfactor);
+		kmodes_printf("factor=%f, rfactor=%f, kfactor=%f\n", factor, rfactor, kfactor);
 	}
 	*jump = pow(cost/factor, -Y) - (pcost > 0 ? pow(pcost/factor, -Y) : 0);
 	*rjump = pow(rrcost/rfactor, -Y) - (prrcost > 0 ? pow(prrcost/rfactor, -Y) : 0);
@@ -3614,6 +3655,7 @@ void free_data(data *dat)
  * @param cmdname	name of command
  * @param obj		void pointer (to options, in this case)
  */
+#ifdef MATHLIB_STANDALONE
 void fprint_usage(FILE *fp, const char *cmdname, void *obj)
 {
 	options *opt = (options *) obj;
@@ -3625,12 +3667,12 @@ void fprint_usage(FILE *fp, const char *cmdname, void *obj)
 	for (size_t i = start; i < strlen(cmdname); ++i) fputc(toupper(cmdname[i]), fp);
 	kmodes_fprintf(fp, "\n");
 	kmodes_fprintf(fp, "\nNAME\n\t%s - cluster observations with categorical coordinates\n", &cmdname[start]);
-	kmodes_fprintf(fp, "\nSYNOPSIS\n\t%s [-r SEED -n N -h97|-l|-w -i INI -o OFILE] -k K -f FILE [OPTIONS]\n", &cmdname[start]);
+	kmodes_fprintf(fp, "\nSYNOPSIS\n\t%s [-r SEED1 SEED2 -n N -h97|-l|-w -i INI -o OFILE] -k K -f FILE [OPTIONS]\n", &cmdname[start]);
 		/**********************************************************************/
 	kmodes_fprintf(fp, "\nDESCRIPTION\n\t"
 		"%s clusters observations found in IFILE into K clusters.  It\n\t"
 		"randomly initialize N times using initialization method INI after\n\t"
-		"setting random number seed SEED, and outputs the results in OFILE.\n", &cmdname[start]);
+		"setting random number seeds SEED1 SEED2, and outputs the results in OFILE.\n", &cmdname[start]);
 
 	kmodes_fprintf(fp, "\n\t"
 		"Data in FILE should be one observation per line, non-negative integers\n\t"
@@ -3697,8 +3739,8 @@ void fprint_usage(FILE *fp, const char *cmdname, void *obj)
 		"No effect without --h97.\n", opt->use_hartigan ? "yes" : "no");
 	kmodes_fprintf(fp, "\t--shuffle\n\t\t"
 		"Shuffle the observation order on each initialization (Default: %s).\n", opt->shuffle ? "yes" : "no");
-	kmodes_fprintf(fp, "\t-r, --random SEED\n\t\t"
-		"Set random number seed (Default: %lu).\n", opt->seed);
+	kmodes_fprintf(fp, "\t-r, --random SEED1 SEED2\n\t\t"
+		"Set random number seeds (Default: %lu %lu).\n", opt->seed, opt->seed2);
 	kmodes_fprintf(fp, "\t--continue\n\t\tContinue previous run (Default: %s).\n", opt->continue_run ? "yes" : "no");
 	kmodes_fprintf(fp, "\t-m, --min OPTIMUM\n\t\t"
 		"Record number of initializations and time to this target optimum.\n");
@@ -3779,3 +3821,4 @@ void fprint_usage(FILE *fp, const char *cmdname, void *obj)
 	for (size_t i = start; i < strlen(cmdname); ++i) fputc(toupper(cmdname[i]), fp);
 	kmodes_fprintf(fp, "\n");
 } /* fprint_usage */
+#endif

@@ -6,10 +6,8 @@
 
 #include <R.h>
 #include <Rinternals.h>
-#include <Rdefines.h>
 
 #include "run_kmodes.h"
-#include "kmodes.h"
 #include "error.h"
 
 enum RETURN_SLOT {
@@ -46,12 +44,20 @@ int load_data(data *dat, options *opt, SEXP data_r, int *);
  * @param init_method_r	initialization method (STRSXP scalar)
  * @param ninit_r	number of initializations (INTSXP scalar)
  * @param true_clus_r	true cluster (n-length INTSXP vector)
+ * @param shuffle_r	shuffle the observation order in data
  * @param verbosity_r	verbosity (0, 1, 2, 3)
  * @param seed_r	random number seed
  * @return		list
  */
-SEXP run_kmodes_r(SEXP data_r, SEXP K_r, SEXP algorithm_r, SEXP init_method_r,
-		SEXP ninit_r, SEXP true_clus_r, SEXP verbosity_r, SEXP seed_r)
+SEXP run_kmodes_r(	SEXP data_r,
+			SEXP K_r,
+			SEXP algorithm_r,
+			SEXP init_method_r,
+			SEXP ninit_r,
+			SEXP true_clus_r,
+			SEXP shuffle_r,
+			SEXP verbosity_r,
+			SEXP seed_r)
 {
 	int err = NO_ERROR;
 	int nprotect = 0;
@@ -89,6 +95,11 @@ SEXP run_kmodes_r(SEXP data_r, SEXP K_r, SEXP algorithm_r, SEXP init_method_r,
 			"for initialization method, option init.method.\n");
 		goto EXIT_RUN_KMODES_R;
 	}
+	if (!isLogical(shuffle_r)) {
+		err = INVALID_USER_INPUT;
+		mmessage(ERROR_MSG, err, "Invalid type for shuffle.\n");
+		goto EXIT_RUN_KMODES_R;
+	}
 	if (!isInteger(verbosity_r)) {
 		err = INVALID_USER_INPUT;
 		mmessage(ERROR_MSG, err, "Invalid type for verbosity level.\n");
@@ -108,6 +119,8 @@ SEXP run_kmodes_r(SEXP data_r, SEXP K_r, SEXP algorithm_r, SEXP init_method_r,
 	opt->n_init = * INTEGER(ninit_r);
 	opt->quiet = * INTEGER(verbosity_r);
 	opt->seed = * INTEGER(seed_r);
+	opt->shuffle = * LOGICAL(shuffle_r);
+
 	char const *alg = CHAR(STRING_ELT(algorithm_r, 0));
 	char const *ini = CHAR(STRING_ELT(init_method_r, 0));
 
@@ -164,8 +177,6 @@ SEXP run_kmodes_r(SEXP data_r, SEXP K_r, SEXP algorithm_r, SEXP init_method_r,
 		debug_msg(opt->quiet >= VERBOSE, opt->quiet, "True cluster mem"
 			"bership for %d observations.\n", length(true_clus_r));
 	}
-
-	srand(opt->seed);
 
 	/* create data object */
 	if ((err = make_data(&dat, opt))) {

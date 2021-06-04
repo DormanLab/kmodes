@@ -13,6 +13,7 @@ typedef struct _data data;
 
 #include "kmodes.h"
 #include "hash.h"
+
 /**
  * Run options.
  */
@@ -39,7 +40,8 @@ struct _options {
 	/* run conditions */
 	kmodes_options *kopt;	/*<! kmodes run options passed to algorithms */
 	unsigned int n_max_iter;/*<! max. number of iterations */
-	unsigned long seed;	/*<! random number seed [srand()] */
+	unsigned long seed;	/*<! random number seed */
+	unsigned long seed2;	/*<! second random number seed (set_seed() needs 2) */
 	int kmodes_algorithm;	/*<! run Lloyd's, Huang's or HW k-modes */
 	int use_hartigan;	/*<! use Hartigan updates (Lloyd's | Huang's) */
 	int update_modes;	/*<! update modes */

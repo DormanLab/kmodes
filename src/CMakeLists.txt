@@ -8,12 +8,12 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED True)
 
 # compile with debugging symbols
-#SET(GCC_COVERAGE_COMPILE_FLAGS "-g")
-#add_definitions(${GCC_COVERAGE_COMPILE_FLAGS})
+SET(GCC_COVERAGE_COMPILE_FLAGS "-g")
+add_definitions(${GCC_COVERAGE_COMPILE_FLAGS})
 
 # compile with optimization
-SET(GCC_COVERAGE_COMPILE_FLAGS "-O3")
-add_definitions(${GCC_COVERAGE_COMPILE_FLAGS})
+#SET(GCC_COVERAGE_COMPILE_FLAGS "-O3")
+#add_definitions(${GCC_COVERAGE_COMPILE_FLAGS})
 
 add_definitions(-DMATHLIB_STANDALONE)
 
@@ -21,7 +21,7 @@ include(FindPackageHandleStandardArgs)
 
 #aux_source_directory(. DIR_SRCS)
 set(SRCS cluster.c cmdline.c error.c io.c io_kmodes.c
-	kmodes.c matrix_exponential.c order.c r8lib.c
+	kmodes.c matrix_exponential.c order.c r8slib.c
 		run_kmodes.c sample.c timing_mach.c entropy.c hash.c)
 
 

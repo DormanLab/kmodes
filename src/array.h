@@ -150,35 +150,14 @@
 
 #define MAKE_1ARRAY_DEFAULT(a,n) do {                                        \
     (a) = malloc((n) * sizeof *(a));                                         \
-    if ((a)==NULL)                                                           \
-        fprintf(stderr, "*** in file %s, function %s(), line %d: "           \
-                "out of memory!\n",  __FILE__, __func__, __LINE__);          \
 } while (0)
 
 #define CMAKE_1ARRAY_DEFAULT(a,n) do {                                       \
     (a) = calloc((n), sizeof *(a));                                          \
-    if ((a)==NULL)                                                           \
-        fprintf(stderr, "*** in file %s, function %s(), line %d: "           \
-                "out of memory!\n",  __FILE__, __func__, __LINE__);          \
 } while (0)
 
-#define REALLOC_1ARRAY_DEFAULT(a,n,n1) do {                                  \
-	void *RESERVED_PTR;                                                  \
-	if ((n) == (n1))                                                     \
-		break;                                                       \
-	RESERVED_PTR = realloc((a), (n1) * sizeof *(a));                     \
-	if (RESERVED_PTR == NULL)                                            \
-		fprintf(stderr, "*** in file %s, function %s(), line %d: "   \
-			"out of memory!\n",  __FILE__, __func__, __LINE__);  \
-	else                                                                 \
-		(a) = RESERVED_PTR;                                          \
-} while (0)
-
-#define COPY_1ARRAY(a,b,n) do {                                                \
-	(a) = memcpy((a), (b), (n) * sizeof *(a));                             \
-	if ((a) == NULL)                                                       \
-		fprintf(stderr, "*** in file %s, function %s(), line %d: "     \
-			"memcpy failed!\n", __FILE__, __func__, __LINE__);     \
+#define COPY_1ARRAY(a,b,n) do {                                              \
+	(a) = memcpy((a), (b), (n) * sizeof *(a));                           \
 } while (0)
 
 #define FREE_1ARRAY(a)  do {                                                 \

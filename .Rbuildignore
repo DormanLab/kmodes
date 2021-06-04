@@ -1,9 +1,16 @@
 \.git
 Makefile
+README.html
+^scripts
 src/cmake.*
 src/CMake.*
 src/symbols.rds
 src/run_kmodes$
+src/cmdline\.[ch]$
+src/io\.[ch]$
+src/io_kmodes\.[ch]$
+data/sim.txt
+data/soybean.txt
 \.o$
 \.so$
 demo/.*\.ini$

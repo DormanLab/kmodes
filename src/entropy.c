@@ -1,19 +1,17 @@
-#define DEBUGGING_CODE
+//#define DEBUGGING_CODE
 
-#include <stdlib.h>
-#include <string.h>
-#include <stddef.h>
-#include <ctype.h>
-#include <math.h>
+#include <Rmath.h>
 #include <limits.h>
+#ifdef DEBUGGING_CODE
+#include <stdio.h>
+#endif
 
+#include "entropy.h"
 #include "run_kmodes.h"
 #include "error.h"
-#include "io.h"
-#include "math.h"
-#include "entropy.h"
 #include "order.h"
 #include "hash.h"
+#include "sample.h"
 
 static inline double hd(data_t *x, data_t *y, unsigned int p);
 static int perturb_by_hd(data *dat, unsigned int K, unsigned int k1, data_t **seeds, unsigned int *sd_idx);
@@ -25,7 +23,7 @@ unsigned int binary_search(data_t **x, data *dat, size_t *indices, int l, int r,
 int randomize_masked_hash(data *dat);
 int select_by_hd (data *dat, data_t **seeds, data_t **nseeds, unsigned int *nsd_idx, unsigned int *sd_idx, unsigned int K);
 void replace_by_random(data *dat, unsigned int K, unsigned int k1, data_t **seeds,
-                       unsigned int *sd_idx);
+					   unsigned int *sd_idx);
 
 static inline double hd(data_t *x, data_t *y, unsigned int p)
 {
@@ -471,9 +469,10 @@ initialize_by_abundance(
 							break;
 					if (k < j)
 						mmessage(ERROR_MSG, INTERNAL_ERROR, "Identical seeds!\n");
-                    //randomly sample one from the selected pool
-                    int r = rand() % sc->count;
-                    size_t id = sc->idx_array[r];
+					//randomly sample one from the selected pool
+					int r = (int) runif(0, sc->count);
+					size_t id = sc->idx_array[r];
+
 					memcpy(seeds[j], x[id], p * sizeof(**seeds));
 					if (sd_idx)
 						sd_idx[j] = sc->idx;
@@ -487,7 +486,7 @@ initialize_by_abundance(
 		/* need to randomly sample those to keep */
 		while (j < K && nties - nused) {
 			/* randomly select an unused one */
-			k = (unsigned int) nties * (rand() / (RAND_MAX + 1.));
+			k = (unsigned int) runif(0, nties);
 
 			if (used[k])
 				continue;
@@ -509,9 +508,10 @@ initialize_by_abundance(
 				fprintf(stderr, "\n");
 			}
 #endif
-            int r = rand() % snext->count;
-            size_t id = snext->idx_array[r];
-            memcpy(seeds[j], x[id], p * sizeof(**seeds));
+			int r = runif(0, snext->count);
+			size_t id = snext->idx_array[r];
+
+			memcpy(seeds[j], x[id], p * sizeof(**seeds));
 
 			if (sd_idx)
 				sd_idx[j] = snext->idx;
@@ -568,15 +568,16 @@ initialize_proportional_to_abundance(
 		if (repeat)
 			--k;
 		repeat = 0;
-		r = dsum * rand() / (RAND_MAX + 1.);
+		r = runif(0, dsum);
 
 		for (useq = dat->seq_count, dsum = useq->count; useq != NULL && r > dsum; useq = useq->hh.next, dsum += useq ? useq->count : 0);
 
 		s = useq->idx;
 		// get the center of obs with the chosen masked obs
-        int r = rand() % useq->count;
-        size_t id = useq->idx_array[r];
-        memcpy(seeds[k], x[id], p * sizeof(**seeds));
+		int r = runif(0, useq->count);
+		size_t id = useq->idx_array[r];
+
+		memcpy(seeds[k], x[id], p * sizeof(**seeds));
 		sd_idx[k] = s;
 
 		for (unsigned int l = 0; l < k1; ++l)
@@ -615,7 +616,7 @@ perturb_by_hd(
 				unsigned int k1,
 				data_t **seeds,
 				unsigned int *sd_idx)
-{                                                                           /**/
+{																		   /**/
 	UNUSED(k1);
 
 #ifdef DEBUGGING_CODE
@@ -671,7 +672,7 @@ perturb_by_hd(
 		nsd_idx[k] = sd_idx[k];
 	}
 	
-	double r = dsum * rand() / (RAND_MAX + 1.);
+	double r = runif(0, dsum);
 
 	for (k = 0, dsum = 0; k < K && r > dsum; dsum += hdis[k++]);
 	if (k)
@@ -716,186 +717,187 @@ perturb_by_hd(
 
 /**
  *
- * @param dat        data object (k-modes)
- * @param K        number of clusters
- * @param k1        unused
- * @param seeds        the current seeds
- * @param sd_idx    the current seed indices
- * @return        error status
+ * @param dat		data object (k-modes)
+ * @param K		number of clusters
+ * @param k1		unused
+ * @param seeds		the current seeds
+ * @param sd_idx	the current seed indices
+ * @return		error status
  */
 static int
 perturb_methods(
-                data *dat,
-                unsigned int K,
-                unsigned int k1,
-                data_t **seeds,
-                unsigned int *sd_idx,
-                options *opt)
-{                                                                           /**/
-    UNUSED(k1);
-    int err = NO_ERROR;
+				data *dat,
+				unsigned int K,
+				unsigned int k1,
+				data_t **seeds,
+				unsigned int *sd_idx,
+				options *opt)
+{																		   /**/
+	UNUSED(k1);
+	int err = NO_ERROR;
 #ifdef DEBUGGING_CODE
-    int fxn_debug = DEBUG_I;//ABSOLUTE_SILENCE;//
+	int fxn_debug = DEBUG_I;//ABSOLUTE_SILENCE;//
 #endif
-    unsigned int p = dat->n_coordinates;
-    data_t **nseeds = malloc(K * sizeof *nseeds);
-    data_t *save_seed = malloc(p * sizeof *save_seed);
-    unsigned int *nsd_idx = malloc(K * sizeof *nsd_idx);
-    unsigned int save_sd_idx = 0;
-    unsigned int k = 0;
+	unsigned int p = dat->n_coordinates;
+	data_t **nseeds = malloc(K * sizeof *nseeds);
+	data_t *save_seed = malloc(p * sizeof *save_seed);
+	unsigned int *nsd_idx = malloc(K * sizeof *nsd_idx);
+	unsigned int save_sd_idx = 0;
+	unsigned int k = 0;
 
-    if (!nseeds || !nsd_idx || !save_seed)
-        return mmessage(ERROR_MSG, MEMORY_ALLOCATION, "nseeds");
-    
-    if (opt->perturb_selection == KMODES_PERTURB_HD) {
-        k = select_by_hd (dat, seeds, nseeds, nsd_idx, sd_idx, K);
-    }
-    
-    if (k != K - 1) {
-        nseeds[K-1] = seeds[k];
-        nseeds[k] = seeds[K-1];    /* we'll keep this one */
-        nsd_idx[K-1] = sd_idx[k];
-        nsd_idx[k] = sd_idx[K-1];    /* this one */
-        save_sd_idx = sd_idx[K-1];
-    }
-    memcpy(save_seed, seeds[K-1], p*sizeof(*save_seed));
+	if (!nseeds || !nsd_idx || !save_seed)
+		return mmessage(ERROR_MSG, MEMORY_ALLOCATION, "nseeds");
+	
+	if (opt->perturb_selection == KMODES_PERTURB_HD) {
+		k = select_by_hd (dat, seeds, nseeds, nsd_idx, sd_idx, K);
+	}
+	
+	if (k != K - 1) {
+		nseeds[K-1] = seeds[k];
+		nseeds[k] = seeds[K-1];	/* we'll keep this one */
+		nsd_idx[K-1] = sd_idx[k];
+		nsd_idx[k] = sd_idx[K-1];	/* this one */
+		save_sd_idx = sd_idx[K-1];
+	}
+	memcpy(save_seed, seeds[K-1], p*sizeof(*save_seed));
 
-    do {
-        if (opt->init_method == KMODES_INIT_AV07) {
-            err = kmodes_init_av07(dat->dmat, dat->n_observations, dat->n_coordinates, K, K-1, 0, nseeds, nsd_idx, 0);
-        } else if (opt->init_method == KMODES_INIT_AV07_GREEDY) {
-            err = kmodes_init_av07(dat->dmat, dat->n_observations, dat->n_coordinates, K, K-1, 0, nseeds, nsd_idx, 1);
-        } else if (opt->init_method == KMODES_INIT_CLB09) {
-            err = kmodes_init_clb09(dat->dmat, dat->n_observations, dat->n_coordinates, K, K-1, 0, 0, nseeds, nsd_idx, UNSIGNED_INT);
-        } else if (opt->init_method == KMODES_INIT_CLB09_RANDOM) {
-            err = kmodes_init_clb09(dat->dmat, dat->n_observations, dat->n_coordinates, K, K-1, 0, 1, nseeds, nsd_idx, UNSIGNED_INT);
-        } else if (opt->init_method == KMODES_INIT_H97) {
-            err = kmodes_init_h97(dat->dmat, dat->n_observations, dat->n_coordinates, K, K-1, 0, 0, nseeds, nsd_idx);
-        } else if (opt->init_method == KMODES_INIT_H97_RANDOM) {
-            err = kmodes_init_h97(dat->dmat, dat->n_observations, dat->n_coordinates, K, K-1, 0, 1, nseeds, nsd_idx);
-        } else if (opt->init_method == KMODES_INIT_HD17) {
-            err = kmodes_init_hd17(dat->dmat, dat->n_observations, dat->n_coordinates, K, K-1, 0, nseeds, nsd_idx);
-        } else
-            replace_by_random(dat, K, K-1, nseeds, nsd_idx);
-    } while (!hd(nseeds[K-1], save_seed, p));    /* insist on new seed */
+	do {
+		if (opt->init_method == KMODES_INIT_AV07) {
+			err = kmodes_init_av07(dat->dmat, dat->n_observations, dat->n_coordinates, K, K-1, 0, nseeds, nsd_idx, 0);
+		} else if (opt->init_method == KMODES_INIT_AV07_GREEDY) {
+			err = kmodes_init_av07(dat->dmat, dat->n_observations, dat->n_coordinates, K, K-1, 0, nseeds, nsd_idx, 1);
+		} else if (opt->init_method == KMODES_INIT_CLB09) {
+			err = kmodes_init_clb09(dat->dmat, dat->n_observations, dat->n_coordinates, K, K-1, 0, 0, nseeds, nsd_idx, UNSIGNED_INT);
+		} else if (opt->init_method == KMODES_INIT_CLB09_RANDOM) {
+			err = kmodes_init_clb09(dat->dmat, dat->n_observations, dat->n_coordinates, K, K-1, 0, 1, nseeds, nsd_idx, UNSIGNED_INT);
+		} else if (opt->init_method == KMODES_INIT_H97) {
+			err = kmodes_init_h97(dat->dmat, dat->n_observations, dat->n_coordinates, K, K-1, 0, 0, nseeds, nsd_idx);
+		} else if (opt->init_method == KMODES_INIT_H97_RANDOM) {
+			err = kmodes_init_h97(dat->dmat, dat->n_observations, dat->n_coordinates, K, K-1, 0, 1, nseeds, nsd_idx);
+		} else if (opt->init_method == KMODES_INIT_HD17) {
+			err = kmodes_init_hd17(dat->dmat, dat->n_observations, dat->n_coordinates, K, K-1, 0, nseeds, nsd_idx);
+		} else
+			replace_by_random(dat, K, K-1, nseeds, nsd_idx);
+	} while (!hd(nseeds[K-1], save_seed, p));	/* insist on new seed */
 
 #ifdef DEBUGGING_CODE
-    debug_msg(DEBUG_I >= fxn_debug, DEBUG_I, "Replacing %uth seed index %u "
-        "with seed index %u\n", k, sd_idx[k], nsd_idx[K-1]);
+	debug_msg(DEBUG_I >= fxn_debug, DEBUG_I, "Replacing %uth seed index %u "
+		"with seed index %u\n", k, sd_idx[k], nsd_idx[K-1]);
 #endif
 
-    if (k != K - 1) {
-        /* place new seed at old location */
-        seeds[k] = nseeds[K-1];
-        sd_idx[k] = nsd_idx[K-1];
-        /* restore saved seed */
-        memcpy(seeds[K-1], save_seed, p*sizeof(*save_seed));
-        sd_idx[K-1] = save_sd_idx;
-    }
+	if (k != K - 1) {
+		/* place new seed at old location */
+		seeds[k] = nseeds[K-1];
+		sd_idx[k] = nsd_idx[K-1];
+		/* restore saved seed */
+		memcpy(seeds[K-1], save_seed, p*sizeof(*save_seed));
+		sd_idx[K-1] = save_sd_idx;
+	}
    
-    free(nseeds);
-    free(nsd_idx);
-    free(save_seed);
+	free(nseeds);
+	free(nsd_idx);
+	free(save_seed);
 
-    return err;
+	return err;
 } /* perturb_methods */
 
 
-int select_by_hd (data *dat, data_t **seeds,
-                   data_t **nseeds, unsigned int *nsd_idx,
-                   unsigned int *sd_idx, unsigned int K) {
-    unsigned int n = dat->n_observations;
-    unsigned int p = dat->n_coordinates;
-    double hdis[K], dsum = 0;
-    unsigned int k = 0;
-    
-    /* compute hamming distance of each cluster */
-    for (k = 0; k < K; ++k)
-        hdis[k] = 0;
-    
-    // if algorithm gets a NULL cluster
-    int count = 0;
-    for (k = 0; k < K; ++k)
-        for (int j = 0; j < dat->n_coordinates; ++j)
-            if (dat->best_modes[k][j] == 0)
-                count++;
-    
-    for (unsigned int i = 0; i < n; ++i)
-        if (count == K * dat->n_coordinates) {
-            mmessage(WARNING_MSG, INTERNAL_ERROR, "null cluster?");
-            hdis[dat->cluster_id[i]] += hd(dat->dmat[i],
-                    dat->seeds[dat->cluster_id[i]], p);
-        } else
-            hdis[dat->best_cluster_id[i]] += hd(dat->dmat[i],
-                dat->best_modes[dat->best_cluster_id[i]], p);
-    
-    int null_cl = -1;
-    /* choose seed to resample */
-    for (k = 0; k < K; ++k) {
-        if (count == K * dat->n_coordinates) {
-            memcpy(seeds[k], dat->seeds[k], p * sizeof(**seeds));
-            hdis[k] /= dat->cluster_size[k];
-            if (dat->cluster_size[k] == 0)
-                null_cl = k;
-        } else {
-            memcpy(seeds[k], dat->best_modes[k], p * sizeof(**seeds));
-            hdis[k] /= dat->best_cluster_size[k];
-        }
-        
-        dsum += hdis[k];
-        nseeds[k] = seeds[k];
-        nsd_idx[k] = sd_idx[k];
-    }
-    
-    double r = dsum * rand() / (RAND_MAX + 1.);
+int select_by_hd(data *dat, data_t **seeds,
+				   data_t **nseeds, unsigned int *nsd_idx,
+				   unsigned int *sd_idx, unsigned int K)
+{
+	unsigned int n = dat->n_observations;
+	unsigned int p = dat->n_coordinates;
+	double hdis[K], dsum = 0;
+	unsigned int k = 0;
+	
+	/* compute hamming distance of each cluster */
+	for (k = 0; k < K; ++k)
+		hdis[k] = 0;
+	
+	// if algorithm gets a NULL cluster
+	int count = 0;
+	for (k = 0; k < K; ++k)
+		for (int j = 0; j < dat->n_coordinates; ++j)
+			if (dat->best_modes[k][j] == 0)
+				count++;
+	
+	for (unsigned int i = 0; i < n; ++i)
+		if (count == K * dat->n_coordinates) {
+			mmessage(WARNING_MSG, INTERNAL_ERROR, "null cluster?");
+			hdis[dat->cluster_id[i]] += hd(dat->dmat[i],
+					dat->seeds[dat->cluster_id[i]], p);
+		} else
+			hdis[dat->best_cluster_id[i]] += hd(dat->dmat[i],
+				dat->best_modes[dat->best_cluster_id[i]], p);
+	
+	int null_cl = -1;
+	/* choose seed to resample */
+	for (k = 0; k < K; ++k) {
+		if (count == K * dat->n_coordinates) {
+			memcpy(seeds[k], dat->seeds[k], p * sizeof(**seeds));
+			hdis[k] /= dat->cluster_size[k];
+			if (dat->cluster_size[k] == 0)
+				null_cl = k;
+		} else {
+			memcpy(seeds[k], dat->best_modes[k], p * sizeof(**seeds));
+			hdis[k] /= dat->best_cluster_size[k];
+		}
+		
+		dsum += hdis[k];
+		nseeds[k] = seeds[k];
+		nsd_idx[k] = sd_idx[k];
+	}
+	
+	double r = runif(0, dsum);
 
-    for (k = 0, dsum = 0; k < K && r > dsum; dsum += hdis[k++]);
-    if (k)
-        k--;
-    if (null_cl != -1)
-        k = null_cl;
-    
-    return k;
-}
+	for (k = 0, dsum = 0; k < K && r > dsum; dsum += hdis[k++]);
+	if (k)
+		k--;
+	if (null_cl != -1)
+		k = null_cl;
+	
+	return k;
+} /* select_by_hd */
 
 void replace_by_random(data *dat,
-                  unsigned int K,
-                  unsigned int k1,
-                  data_t **seeds,
-                  unsigned int *sd_idx) {
-    data_t **x = dat->dmat;
-    unsigned int p = dat->n_coordinates;
-    unsigned int n = dat->n_observations;
-    int repeat = 0;
-    
-    for (unsigned int k = k1; k < K; ++k) {
-        if (repeat)
-            --k;
-        repeat = 0;
-        
-        size_t s = (unsigned int) ((double) rand() / RAND_MAX * n);
-        // get the center of obs with the chosen masked obs
-       
-        sd_idx[k] = s;
+				  unsigned int K,
+				  unsigned int k1,
+				  data_t **seeds,
+				  unsigned int *sd_idx) {
+	data_t **x = dat->dmat;
+	unsigned int p = dat->n_coordinates;
+	unsigned int n = dat->n_observations;
+	int repeat = 0;
+	
+	for (unsigned int k = k1; k < K; ++k) {
+		if (repeat)
+			--k;
+		repeat = 0;
+		
+		size_t s = (unsigned int) runif(0, n);
+		// get the center of obs with the chosen masked obs
+	   
+		sd_idx[k] = s;
 
-        for (unsigned int l = 0; l < k1; ++l)
-            if (!hd(seeds[l], x[s], p)) {
-                repeat = 1;
-                break;
-            }
-        memcpy(seeds[k], x[s], p * sizeof(**seeds));
-    }
+		for (unsigned int l = 0; l < k1; ++l)
+			if (!hd(seeds[l], x[s], p)) {
+				repeat = 1;
+				break;
+			}
+		memcpy(seeds[k], x[s], p * sizeof(**seeds));
+	}
 }
 
 /**
  * Perturb for by masked abundance.
  *
- * @param dat    data object
- * @param opt    options object
- * @return    error status
+ * @param dat	data object
+ * @param opt	options object
+ * @return	error status
  */
 int perturb_general(data *dat, options *opt)
 {
-    return perturb_methods(dat, opt->K,
-        opt->n_seed_set, dat->seeds, dat->seed_idx, opt);
+	return perturb_methods(dat, opt->K,
+		opt->n_seed_set, dat->seeds, dat->seed_idx, opt);
 } /* perturb */

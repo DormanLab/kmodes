@@ -7,12 +7,7 @@
  */
 
 #include <math.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <errno.h>
 #include <string.h>
-#include <float.h>
-#include <limits.h>
 
 #include "cluster.h"
 #include "math.h"
