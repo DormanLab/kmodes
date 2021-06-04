@@ -104,6 +104,11 @@ kmodes <- function(	data,
 			verbosity = 0,
 			seed = NULL)
 {
+	if (is.null(algorithm))
+		algorithm <- 'h97'
+	if (is.null(init.method))
+		init.method <- 'rnd'
+
 	algorithm <- match.arg(algorithm)
 	init.method <- match.arg(init.method)
 
@@ -120,7 +125,7 @@ kmodes <- function(	data,
 		stopifnot(!is.na(as.integer(seed)))
 
 	if (!is.loaded("run_kmodes_r", PACKAGE="kmodes"))
-		dyn.load("src/kmodes_r.so")
+		dyn.load("src/kmodes.so")
 
 	if (true.column == 1) {
 		true.cluster <- as.integer(data[, true.column])

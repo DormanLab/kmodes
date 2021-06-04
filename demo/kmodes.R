@@ -1,5 +1,9 @@
 #!/usr/bin/Rscript
 
+if (!requireNamespace('kmodes', quietly = FALSE))
+	stop()
+
+require(kmodes)
 data(sim)
 
 if (file.exists("/dev/urandom")) {

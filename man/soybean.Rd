@@ -3,17 +3,17 @@
 \docType{data}
 \name{soybean}
 \alias{soybean}
-\title{Small Soybean Data from UCI Repository}
+\title{Small Soybean Data}
 \format{
 A data frame containing 100 observations in rows and 51 columns
 }
 \source{
 UCI Repository \url{https://archive.ics.uci.edu/ml/datasets/soybean+(small)}.
 }
-\usage{
-soybean
-}
 \description{
+The small soybean dataset from the UCI repository.
+}
+\details{
 This is the small soybean dataset from the UCI repository. The data
 have been modified to use contiguous integers starting from 0 to encode
 the categories observed in each coordinate, and the last column with the

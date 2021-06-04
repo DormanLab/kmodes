@@ -12,4 +12,13 @@ Implements several algorithm for k-modes, including Huang's algorithm [H97] and 
 The package kmodes provides only one function [kmodes()], which performs
 k-modes clustering on categorical datasets.
 }
+\author{
+\strong{Maintainer}: Karin S Dorman \email{kdorman@iastate.edu} (\href{https://orcid.org/0000-0003-3650-0018}{ORCID})
+
+Authors:
+\itemize{
+  \item Yudi Zhang \email{yudiz@iastate.edu}
+}
+
+}
 \keyword{internal}

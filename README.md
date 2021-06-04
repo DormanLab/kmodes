@@ -48,6 +48,8 @@ This kmodes software has been tested under Linux and MacOS.
 	    devtools::install_github("DormanLab/kmodes")
 	    ```
 
+	1. See the ```demo(kmodes)``` and help ```?kmodes``` for more information.
+
 1. C executable <a name = "Cinstallation" />
 
 	1. Clone the repository.

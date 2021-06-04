@@ -3,14 +3,14 @@
 \docType{data}
 \name{sim}
 \alias{sim}
-\title{Simulated Categorical Data for Clustering}
+\title{Simulated Categorical Data}
 \format{
 A data frame with 100 observations and 51 columns.
 }
-\usage{
-sim
-}
 \description{
+Clustered categorical data simulated by kmodes standalone C package.
+}
+\details{
 A dataset simulated under a continuous time Markov chain model. There
 are four well-separated clusters in these data, consisting of 100
 observations and 50 categorical coordinates. The additional first column

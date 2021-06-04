@@ -247,8 +247,10 @@ CLEAR_AND_EXIT:
 	free_kmodes();
 	free_cluster_statics();
 
-	if (dat)
+	if (dat) {
+		free_data_for_k(dat, opt);
 		free_data(dat);
+	}
 	if (opt)
 		free_options(opt);
 
@@ -1624,6 +1626,8 @@ void free_options(options *opt)
 			opt->sim_modes = NULL;
 		}
 		/* opt->seed_idx free'd via dat->seed_idx */
+		if (opt->kopt)
+			free(opt->kopt);
 		free(opt);
 	}
 } /* free_options */
