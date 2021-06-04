@@ -29,8 +29,6 @@
 #include "order.h"
 #include "entropy.h"
 
-int allocate_data_for_k(data *dat, unsigned int k);
-int finish_make_data(data *dat, options *opt);
 #ifdef MATHLIB_STANDALONE
 int read_data(data *dat, options *opt);
 int read_modes(data *dat, options *opt);
@@ -42,6 +40,9 @@ int select_k(data *dat, options *opt);
 int select_k_by_dm(options *opt);
 void write_status(data *dat, options *opt, FILE *fps, FILE *fpi, unsigned int i, double ar, double mi, double vi);
 #endif
+
+int allocate_data_for_k(data *dat, unsigned int k);
+int finish_make_data(data *dat, options *opt);
 void update_status(data *dat, options *opt, FILE *fps, FILE *fpi, unsigned int i, TIME_STRUCT *start);
 void compute_costs(double *crit, double *var, double *size, unsigned int n, unsigned int K, double *cost, double *rrcost, double *krcost, double *sd, double *rsd, double *ksd);
 void compute_jump_stats(double cost, double rrcost, double krcost, double pcost, double prrcost, double pkrcost, double *jump, double *rjump, double *kjump, double Y, int reset);
@@ -2270,12 +2271,12 @@ int simulate_data(data *dat, options *opt)
 	do {
 		/* simulate modes */
 		for (unsigned int j = 0; j < dat->n_coordinates; ++j) {
-			data_t c_ancestor = (data_t) runif(0,
-							opt->sim_n_categories);
+			data_t c_ancestor = (data_t) (opt->sim_n_categories
+								* unif_rand());
 
 			/* simulate ancestor character */
 			for (k = 0; k < opt->sim_K; ++k) {
-				double r = runif(0, 1);
+				double r = unif_rand();
 				data_t l = 0;
 
 				for (dsum = Pt[c_ancestor*opt->sim_n_categories];
@@ -2388,7 +2389,7 @@ int simulate_data(data *dat, options *opt)
 		for (unsigned int i = 0; i < dat->n_observations; ++i) {
 
 			/* choose cluster */
-			double r = runif(0, 1);
+			double r = unif_rand();
 
 			for (k = 0, dsum = opt->sim_pi[0];
 				dsum < r; dsum += opt->sim_pi[++k]);
@@ -2399,7 +2400,7 @@ int simulate_data(data *dat, options *opt)
 				data_t l = 0;
 
 				/* choose coordinate */
-				r = runif(0, 1);
+				r = unif_rand();
 				for (dsum = Pt[c_ancestor*opt->sim_n_categories];
 					dsum < r; dsum += Pt[c_ancestor
 						* opt->sim_n_categories + ++l]);
@@ -2689,7 +2690,7 @@ int shuffle_data(data *dat, options *opt)
 	data_t *dptr;
 
 	for (i = n - 1; i > 0; --i) {
-		j = runif(0, i + 1);
+		j = (i + 1) * unif_rand();
 
 		dptr = dat->dmat[j];
 		dat->dmat[j] = dat->dmat[i];
@@ -2793,6 +2794,13 @@ void write_best_solution(data *dat, options *opt, FILE *fps)                /**/
 			printf("Maximum cost: %.0f\n", dat->worst_cost);
 		else
 			fprintf(fps, "Maximum cost: %.0f\n", dat->worst_cost);
+		if (dat->n_init > 1) {
+			if (opt->quiet >= QUIET)
+				printf("Average cost: %f\n", dat->avg_cost);
+			else
+				fprintf(fps, "Average cost: %f\n",
+								dat->avg_cost);
+		}
 		if (opt->quiet >= QUIET) {
 			printf("Best optimized criterion: %.0f",
 							dat->best_total);
@@ -2809,6 +2817,12 @@ void write_best_solution(data *dat, options *opt, FILE *fps)                /**/
 				printf("Maximum AR: %f\n", dat->best_rand);
 			if (fps)
 				fprintf(fps, "Maximum AR: %f\n", dat->best_rand);
+		}
+		if (dat->n_init > 1) {
+			if (opt->quiet >= QUIET)
+				printf("Average AR: %f\n", dat->avg_ar);
+			else
+				fprintf(fps, "Average AR: %f\n", dat->avg_ar);
 		}
 		if (opt->quiet >= QUIET && opt->K > 0) {
 			printf("Best cluster sizes:");
@@ -2836,13 +2850,16 @@ void write_best_solution(data *dat, options *opt, FILE *fps)                /**/
 			printf("Best solution cluster assignments:\n");
 			fprint_uints(fps, dat->best_cluster_id,
 				dat->n_observations, 0, 1);
-			fprintf(fps, "\n");
+		}
+		if (opt->quiet >= QUIET && opt->K > 0 && opt->shuffle) {
+			printf("Best solution indexing:\n");
+			fprint_uints(stdout, dat->best_obsn_idx,
+				dat->n_observations, 0, 1);
 		}
 		if (fps && opt->K > 0 && opt->shuffle) {
 			fprintf(fps, "Best solution indexing:\n");
 			fprint_uints(fps, dat->best_obsn_idx,
 				dat->n_observations, 0, 1);
-			fprintf(fps, "\n");
 		}
 		if (opt->quiet >= QUIET)
 			printf("Best modes:\n");
@@ -3357,7 +3374,7 @@ int select_k(data *dat, options *opt)
 				pasize[k] = 0.;
 			}
 			for (unsigned int j = 0; j < dat->n_observations; ++j) {
-				unsigned int rnd = (unsigned int) runif(0, dat->n_observations);
+				unsigned int rnd = dat->n_observations * unif_rand();
 				double tmp1 = obsn_hd[rnd] / obsn_cnt_sum[rnd];
 				double tmp2 = 1. / obsn_cnt_sum[rnd];
 

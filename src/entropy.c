@@ -477,7 +477,7 @@ initialize_by_abundance(
 					if (k < j)
 						mmessage(ERROR_MSG, INTERNAL_ERROR, "Identical seeds!\n");
 					//randomly sample one from the selected pool
-					int r = (int) runif(0, sc->count);
+					size_t r = (size_t) (unif_rand() * sc->count);
 					size_t id = sc->idx_array[r];
 
 					memcpy(seeds[j], x[id], p * sizeof(**seeds));
@@ -493,7 +493,7 @@ initialize_by_abundance(
 		/* need to randomly sample those to keep */
 		while (j < K && nties - nused) {
 			/* randomly select an unused one */
-			k = (unsigned int) runif(0, nties);
+			k = (unsigned int) (unif_rand() * nties);
 
 			if (used[k])
 				continue;
@@ -515,7 +515,7 @@ initialize_by_abundance(
 				fprintf(stderr, "\n");
 			}
 #endif
-			int r = runif(0, snext->count);
+			int r = (size_t) (unif_rand() * snext->count);
 			size_t id = snext->idx_array[r];
 
 			memcpy(seeds[j], x[id], p * sizeof(**seeds));
@@ -575,13 +575,13 @@ initialize_proportional_to_abundance(
 		if (repeat)
 			--k;
 		repeat = 0;
-		r = runif(0, dsum);
+		r = unif_rand() * dsum;
 
 		for (useq = dat->seq_count, dsum = useq->count; useq != NULL && r > dsum; useq = useq->hh.next, dsum += useq ? useq->count : 0);
 
 		s = useq->idx;
 		// get the center of obs with the chosen masked obs
-		int r = runif(0, useq->count);
+		size_t r = (size_t) (unif_rand() * useq->count);
 		size_t id = useq->idx_array[r];
 
 		memcpy(seeds[k], x[id], p * sizeof(**seeds));
@@ -679,7 +679,7 @@ perturb_by_hd(
 		nsd_idx[k] = sd_idx[k];
 	}
 	
-	double r = runif(0, dsum);
+	double r = unif_rand() * dsum;
 
 	for (k = 0, dsum = 0; k < K && r > dsum; dsum += hdis[k++]);
 	if (k)
@@ -856,7 +856,7 @@ int select_by_hd(data *dat, data_t **seeds,
 		nsd_idx[k] = sd_idx[k];
 	}
 	
-	double r = runif(0, dsum);
+	double r = unif_rand() * dsum;
 
 	for (k = 0, dsum = 0; k < K && r > dsum; dsum += hdis[k++]);
 	if (k)
@@ -867,11 +867,12 @@ int select_by_hd(data *dat, data_t **seeds,
 	return k;
 } /* select_by_hd */
 
-void replace_by_random(data *dat,
-				  unsigned int K,
-				  unsigned int k1,
-				  data_t **seeds,
-				  unsigned int *sd_idx) {
+void replace_by_random(	data *dat,
+			unsigned int K,
+			unsigned int k1,
+			data_t **seeds,
+			unsigned int *sd_idx)
+{
 	data_t **x = dat->dmat;
 	unsigned int p = dat->n_coordinates;
 	unsigned int n = dat->n_observations;
@@ -882,7 +883,7 @@ void replace_by_random(data *dat,
 			--k;
 		repeat = 0;
 		
-		size_t s = (unsigned int) runif(0, n);
+		size_t s = (size_t) (unif_rand() * n);
 		// get the center of obs with the chosen masked obs
 	   
 		sd_idx[k] = s;

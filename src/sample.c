@@ -14,7 +14,7 @@ void sample(unsigned int N, unsigned int n, unsigned int *idx)
 	double u;
 
 	while (m < n) {
-		u = runif(0, 1);
+		u = unif_rand();
 
 		if ( (N - t)*u >= n - m )
 			++t;
@@ -54,7 +54,7 @@ int heap_sample(unsigned int n, unsigned int k, double *w, unsigned int *idx, un
 
 	/* sample k objects */
 	while (j < k) {
-		double r = runif(0, 1);
+		double r = unif_rand();
 		double p = heap[1] * r, left;
 		unsigned int i = 1, chosen_idx;
 
@@ -101,7 +101,7 @@ void sample_vitter(unsigned int N, unsigned int n, unsigned int *idx)
 	double dn = (double) n;
 	double dN = (double) N;
 	double ninv = 1.0 / n;
-	double vprime = exp(log(runif(0, 1)) * ninv);
+	double vprime = exp(log(unif_rand()) * ninv);
 	unsigned int qu1 = 1 + N - n;
 	double dqu1 = (double) qu1;
 	int nainv = -13.;	/* recommended by Vitter */
@@ -118,9 +118,9 @@ void sample_vitter(unsigned int N, unsigned int n, unsigned int *idx)
 				S = (int) X;
 				if (S < qu1)
 					break;
-				vprime = exp(log(runif(0, 1)) * ninv);
+				vprime = exp(log(unif_rand()) * ninv);
 			} while (1);
-			U = runif(0, 1);
+			U = unif_rand();
 			dnS = (double) -S;
 			y1 = exp(log(U * dN/dqu1) * nmin1inv);
 			vprime = y1 * (-X/dN + 1.) * (dqu1 / (dnS + dqu1));
@@ -141,10 +141,10 @@ void sample_vitter(unsigned int N, unsigned int n, unsigned int *idx)
 				bottom = bottom - 1.;
 			}
 			if (dN / (dN - X) >= y1 * exp(log(y2)*nmin1inv)) {
-				vprime = exp(log(runif(0, 1)) * nmin1inv);
+				vprime = exp(log(unif_rand()) * nmin1inv);
 				break;
 			}
-			vprime = exp(log(runif(0, 1)) * ninv);
+			vprime = exp(log(unif_rand()) * ninv);
 		} while (1);
 		idx[k++] = S;
 		N = (N - 1) - S;
@@ -159,7 +159,7 @@ void sample_vitter(unsigned int N, unsigned int n, unsigned int *idx)
 	if (n > 1) {
 		top = N - n;
 		while (n >= 2) {
-			V = runif(0, 1);
+			V = unif_rand();
 			q = top / dN;
 			while (q > V) {
 				S = S + 1;
@@ -193,7 +193,7 @@ int random_sample(size_t N, size_t n,  size_t *D_idx, size_t *s_idx)
 	double u;
 
 	while (m < n) {
-		u = runif(0, 1);
+		u = unif_rand();
 
 		if ( (N - t)*u >= n - m )
 			++t;

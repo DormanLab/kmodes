@@ -1995,7 +1995,7 @@ int kmodes_init_random_from_partition(data_t **x, unsigned int n, unsigned int p
 
 		/* pick one seed from each cluster */
 		for (unsigned int k = 0; k < true_k; ++k) {
-			unsigned int j = (unsigned int) runif(0, nc[k]);
+			unsigned int j = (unsigned int) (unif_rand() * nc[k]);
 
 			sidx[k] = j;
 			memcpy(seeds[k], x[j], p * sizeof **x);
@@ -2004,7 +2004,7 @@ int kmodes_init_random_from_partition(data_t **x, unsigned int n, unsigned int p
 		/* remainding seeds */
 		for (unsigned int k = true_k; k < K; ++k) {
 			/* select cluster with replacement */
-			unsigned int m = (unsigned int) runif(0, K);
+			unsigned int m = (unsigned int) (unif_rand() * K);
 
 			if (m == K)
 				--m;
@@ -2012,7 +2012,7 @@ int kmodes_init_random_from_partition(data_t **x, unsigned int n, unsigned int p
 			/* select distinct observation */
 			do {
 				same = 0;
-				sidx[k] = (unsigned int) runif(0, nc[k]);
+				sidx[k] = (unsigned int) (unif_rand() * nc[k]);
 				if (sidx[k] == nc[k]) --sidx[k];
 				for (unsigned l = 0; l < sidx[k]; ++l)
 					if (sidx[l] == sidx[k] ||
@@ -2030,7 +2030,7 @@ int kmodes_init_random_from_partition(data_t **x, unsigned int n, unsigned int p
 
 		sample(true_k, K, sel_k);
 		for (unsigned int k = 0; k < K; ++k) {
-			unsigned int j = (unsigned int) runif(0, nc[sel_k[k]]);
+			unsigned int j = (unsigned int) (unif_rand() * nc[sel_k[k]]);
 
 			if (sidx)
 				sidx[k] = j;
@@ -2070,7 +2070,7 @@ int kmodes_init_random_from_set(unsigned int K, unsigned int p,
 	unsigned int k = 0, t = 0;
 
 	while (k < K) {
-		double u = runif(0, 1);
+		double u = unif_rand();
 
 		if ( (n_ss - t) * u >= K - k )
 			++t;
@@ -2164,7 +2164,7 @@ int kmodes_init_random_seeds(data_t **x, unsigned int n, unsigned int p, unsigne
 
 		do {
 			same = 0;
-			sidx[i] = (unsigned int) runif(0, n);
+			sidx[i] = (unsigned int) (unif_rand() * n);
                         for (unsigned int j = 0; j < i; ++j)
                                 /* sample without replacement */
                                 /* check for same or equal seeds */
@@ -2251,7 +2251,7 @@ int kmodes_init_h97(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 			/* select methodically from most frequent categories */
 			for (unsigned int j = 0, m = 0; j < p; ++j) {
 				if (rdm)
-					r = (unsigned int) runif(0, __nj[j]);
+					r = (unsigned int) (unif_rand() * __nj[j]);
 				seeds[k][j] = idx[m + r];
 				m += __nj[j];
 				if (!rdm)
@@ -2336,7 +2336,7 @@ int kmodes_init_hd17(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 			for (unsigned int j = 0; j < p; ++j) {
 				data_t cat = 0;
 
-				r = (unsigned int) runif(0, n);
+				r = (unsigned int) (unif_rand() * n);
 				cfreq = __njc[j][(int) cat];
 				while (r > cfreq) {
 					cfreq += __njc[j][(int) ++cat];
@@ -2463,7 +2463,7 @@ int kmodes_init_clb09(data_t **x, unsigned int n, unsigned int p, unsigned int K
 	}
 
 	if (rdm == 2)
-		idx = (unsigned int) runif(0, n);
+		idx = (unsigned int) (unif_rand() * n);
 
 	/* first seed is most dense (or random) */
 	if (!k1){
@@ -2497,7 +2497,7 @@ int kmodes_init_clb09(data_t **x, unsigned int n, unsigned int p, unsigned int K
 
 		/* find most dense/distant observation... */
 		if (rdm) {
-			dtmp = runif(0, 1);
+			dtmp = unif_rand();
 			idx = 0;
 			max = __dens[idx] * __dis[idx];
 			while (dtmp > max / sum) {
@@ -2584,7 +2584,7 @@ kmodes_init_av07(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 			dmin = INFINITY;
 			m = 0;
 			do {
-                                i = (unsigned int) runif(0, n);	/* TODO: allows multiple selections of same seed */
+                                i = (unsigned int) (unif_rand() * n);	/* TODO: allows multiple selections of same seed */
 				dsum = 0;
 				for (l = 0; l < n; ++l) {
 					W[l] = hd(x[l], x[i], p, weight);
@@ -2607,7 +2607,7 @@ kmodes_init_av07(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 			dmin = INFINITY;
 			m = 0;
 			do {
-				r = runif(0, dsum);
+				r = unif_rand() * dsum;
 				for (i = 0, dsum = 0;
 					(i < n) && (dsum < r);
 					dsum += W[i++]);
