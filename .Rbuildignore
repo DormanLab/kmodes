@@ -1,10 +1,10 @@
 \.git
 Makefile
-README.html
+README\.html
 ^scripts
 src/cmake.*
 src/CMake.*
-src/symbols.rds
+src/symbols\.rds
 src/run_kmodes$
 src/cmdline\.[ch]$
 src/io\.[ch]$

@@ -120,7 +120,7 @@ kmodes <- function(	data,
 		stopifnot(!is.na(as.integer(seed)))
 
 	if (!is.loaded("run_kmodes_r", PACKAGE="kmodes"))
-		dyn.load("src/kmodes.so")
+		dyn.load("src/kmodes_r.so")
 
 	if (true.column == 1) {
 		true.cluster <- as.integer(data[, true.column])
