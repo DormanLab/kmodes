@@ -1,9 +1,7 @@
 #ifndef TIMING_MACH_H
 #define TIMING_MACH_H
-/* ************* */
-/* TIMING_MACH_H */
 
-/* C99 check */
+/* C99 check: C99 or greater required for inline functions */
 #if defined(__STDC__)
 # if defined(__STDC_VERSION__)
 #  if (__STDC_VERSION__ >= 199901L)
@@ -17,20 +15,10 @@
 #define TIMING_GIGA (1000000000)
 #define TIMING_NANO (1e-9)
 
-/* helper function prototypes */
-extern double timespec2secd(const struct timespec *ts_in);
-extern void timespec_monodiff(struct timespec *ts_out,
-                              const struct timespec *ts_in);
-extern void timespec_monoadd(struct timespec *ts_out,
-                             const struct timespec *ts_in);
-extern void timespec_mark(struct timespec *ts);
-extern double timespec_elapsed(const struct timespec *ts_start);
+/* MacOSX: old MacOSX (<10.12) not POSIX compliant, but can time. */
+#if defined(__MACH__) && !defined(CLOCK_REALTIME)
 
-
-
-#ifdef __MACH__
-/* ******** */
-/* __MACH__ */
+#define __OLD_MACH__
 
 /* only CLOCK_REALTIME and CLOCK_MONOTONIC are emulated */
 #ifndef CLOCK_REALTIME
@@ -43,39 +31,35 @@ extern double timespec_elapsed(const struct timespec *ts_start);
 /* typdef POSIX clockid_t */
 typedef int clockid_t;
 
-/* initialize mach timing */
-int timing_mach_init (void);
-
 /* clock_gettime - emulate POSIX */
 int clock_gettime(const clockid_t id, struct timespec *tspec);
-/* clock_nanosleep for CLOCK_MONOTONIC and TIMER_ABSTIME */
-int clock_nanosleep_abstime(const struct timespec *req,
-                            struct timespec *rem);
 
-/* __MACH__ */
-/* ******** */
-#else
-/* ***** */
-/* POSIX */
+/* POSIX-compliant */
+#elif defined(__unix__) || defined(__MACH__)
 
-/* clock_nanosleep for CLOCK_MONOTONIC and TIMER_ABSTIME */
-#ifdef TIMING_C99
-static inline int clock_nanosleep_abstime(const struct timespec *req, struct timespec *rem) {
-    return clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, req, rem);
-}
-#else
-# define clock_nanosleep_abstime(req,rem) \
-         clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, (req), (rem))
+#include <unistd.h>
+
+#if _POSIX_VERSION < 199309L
+# define __NON_POSIX__
 #endif
 
-/* POSIX */
-/* ***** */
+/* Not POSIX-compliant: resort to C standard */
+#else			
+
+#define __NON_POSIX__
+
+struct timespec {
+	clock_t time;
+};
+
 #endif
+
+/* helper function prototypes */
+extern void timespec_mark(struct timespec *ts);
+extern double timespec_elapsed(const struct timespec *ts_start);
 
 #define MARK_TIME(a)	timespec_mark((a))
 #define ELAP_TIME(a)	timespec_elapsed((a))
 #define TIME_STRUCT	struct timespec
 
-/* TIMING_MACH_H */
-/* ************* */
 #endif
