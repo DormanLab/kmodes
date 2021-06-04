@@ -19,13 +19,15 @@ static unsigned int **__pat = NULL;
 
 static inline int allocate_statics(unsigned int k_assigned, unsigned int k_true)
 {
-	__pt = calloc(k_true, sizeof *__pt);
-	__pa = calloc(k_assigned, sizeof *__pa);
-	unsigned int *tmp = calloc(k_assigned * k_true, sizeof **__pat);
-	__pat = malloc(k_assigned * sizeof *__pat);
+	__pt = calloc(k_true, sizeof(*__pt));
+	__pa = calloc(k_assigned, sizeof(*__pa));
+	unsigned int *tmp = calloc(k_assigned * k_true, sizeof(**__pat));
+	__pat = malloc(k_assigned * sizeof(*__pat));
 
 	if (!__pt || !__pa || !tmp || !__pat)
 		return mmessage(ERROR_MSG, MEMORY_ALLOCATION, NULL);
+
+	*__pat = NULL;
 
 	for (unsigned int k = 0; k < k_assigned; ++k) {
 		__pat[k] = tmp;
@@ -37,9 +39,9 @@ static inline int allocate_statics(unsigned int k_assigned, unsigned int k_true)
 
 static inline void reset_statics(unsigned int k_assigned, unsigned int k_true)
 {
-	memset(__pt, 0, k_true * sizeof *__pt);
-	memset(__pa, 0, k_assigned * sizeof *__pa);
-	memset(*__pat, 0, k_assigned * k_true * sizeof **__pat);
+	memset(__pt, 0, k_true * sizeof(*__pt));
+	memset(__pa, 0, k_assigned * sizeof(*__pa));
+	memset(*__pat, 0, k_assigned * k_true * sizeof(**__pat));
 } /* reset_statics */
 
 void free_cluster_statics()
