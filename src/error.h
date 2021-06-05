@@ -87,8 +87,8 @@ int wmessage(WINDOW *, const char *, const char *, int, int, int, const char *, 
 #else
 #define debug_msg(condition, level, ...) do {                                  \
 	if ((condition) || ((level) && (level) <= global_debug_level)) {       \
-		kmodes_printf("%s [%s::%s(%4d)]: ", __FILE__, __func__,        \
-			__LINE__, level >= DEBUG_I ? DEBUG_MSG : INFO_MSG);    \
+		kmodes_printf("%s [%s::%s(%4d)]: ", level >= DEBUG_I ?         \
+			"DEBUG" : "INFO", __FILE__, __func__, __LINE__);       \
 		kmodes_printf(__VA_ARGS__);                                    \
 	}                                                                      \
 } while (0)

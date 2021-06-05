@@ -1,5 +1,11 @@
+# to compile standalone executable
 cd src
 cmake -S . -B build
 cd build
 make
 sudo cp run_kmodes /usr/local/bin
+
+# to hand-compile R shared library
+R CMD SHLIB -o kmodes.so cluster.c entropy.c error.c hash.c kmodes.c kmodes_init.c kmodes_r.c matrix_exponential.c order.c r8slib.c run_kmodes.c sample.c timing_mach.c
+# then test
+scripts/test.R

@@ -17,17 +17,17 @@ n.init.others <- 100
 
 ### compare performance of H97 and HW
 set.seed(seed)
-sim.h97 <- kmodes(sim, n.init = n.init.others, K = 4, true.column = 1, verbosity = 1, seed = seed)
+sim.h97 <- kmodes(sim, n.init = n.init.others, K = 4, true.column = 1, verbosity = 1)
 cat("Huang (1997) [H97]\n")
 str(sim.h97)
 
 set.seed(seed)
-sim.cgc01 <- kmodes(sim, algorithm = "lloyd", n.init = n.init.others, K = 4, true.column = 1, verbosity = 1, seed = seed)
+sim.cgc01 <- kmodes(sim, algorithm = "lloyd", n.init = n.init.others, K = 4, true.column = 1, verbosity = 1)
 cat("Chaturvedi, Green & Carroll (2001) [CGC01]\n")
 str(sim.cgc01)
 
 set.seed(seed)
-sim.dm21 <- kmodes(sim, algorithm = "hw", n.init = n.init.dm21, K = 4, true.column = 1, verbosity = 1, seed = seed)
+sim.dm21 <- kmodes(sim, algorithm = "hw", n.init = n.init.dm21, K = 4, true.column = 1, verbosity = 1)
 cat("Dorman & Maitra (2021) [DM21]\n")
 str(sim.dm21)
 

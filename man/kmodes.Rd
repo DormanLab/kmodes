@@ -13,8 +13,7 @@ kmodes(
   n.init = 1,
   true.column = 0,
   shuffle = TRUE,
-  verbosity = 0,
-  seed = NULL
+  verbosity = 0
 )
 }
 \arguments{
@@ -34,8 +33,6 @@ integers.}
 \item{shuffle}{Randomly shuffle observation order before each run.}
 
 \item{verbosity}{Level of verbosity.}
-
-\item{seed}{Random number seed.}
 }
 \value{
 A list with k-modes clustering solution.
@@ -54,8 +51,6 @@ multiple initializations.
  perhaps not from the best solution, as measured by the objective function.
 \item average.ari - If true clusters provided, then the average ARI achieved
 across all initializations.
-\item rng.seed - The random number seed used for these results, if provided
-by the user.
 }
 }
 \description{

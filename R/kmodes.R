@@ -49,7 +49,6 @@
 #' @param true.column	Column of data frame containing true cluster assignments.
 #' @param shuffle	Randomly shuffle observation order before each run.
 #' @param verbosity	Level of verbosity.
-#' @param seed		Random number seed.
 #'
 #' @return A list with k-modes clustering solution.
 #' \itemize{
@@ -67,8 +66,6 @@
 #'	 perhaps not from the best solution, as measured by the objective function.
 #'	\item average.ari - If true clusters provided, then the average ARI achieved
 #'	across all initializations.
-#'	\item rng.seed - The random number seed used for these results, if provided
-#'	by the user.
 #' }
 #'
 #' @references
@@ -101,8 +98,7 @@ kmodes <- function(	data,
 			n.init = 1,
 			true.column = 0,
 			shuffle = TRUE,
-			verbosity = 0,
-			seed = NULL)
+			verbosity = 0)
 {
 	if (is.null(algorithm))
 		algorithm <- 'h97'
@@ -113,16 +109,13 @@ kmodes <- function(	data,
 	init.method <- match.arg(init.method)
 
 	stopifnot(is.data.frame(data))
-	stopifnot(!is.na(as.integer(K)) & as.integer(K)>0)
+	stopifnot(!is.na(as.integer(K) && as.integer(K)>0) & as.integer(K)>0)
 	stopifnot(is.element(algorithm, c("h97","hw","lloyd")))
 	stopifnot(is.element(init.method, c("rnd","h97","h97rnd","hd17","clb09","clb09rnd","av07","av07grd","rndp","rnds")))
 	stopifnot(!is.na(as.integer(n.init)) & as.integer(n.init)>0)
 	stopifnot(sum(is.na(as.integer(true.column)))==0)
 	stopifnot(is.logical(shuffle))
 	stopifnot(is.element(as.integer(verbosity), 0:7))
-
-	if (is.null(seed))
-		stopifnot(!is.na(as.integer(seed)))
 
 	if (!is.loaded("run_kmodes_r", PACKAGE="kmodes"))
 		dyn.load("src/kmodes.so")
@@ -141,7 +134,7 @@ kmodes <- function(	data,
 		data <- t(as.matrix(data))
 	}
 
-	out <- .Call("run_kmodes_r", data, as.integer(K), algorithm, init.method, as.integer(n.init), true.cluster, shuffle, as.integer(verbosity), as.integer(seed))
+	out <- .Call("run_kmodes_r", data, as.integer(K), algorithm, init.method, as.integer(n.init), true.cluster, shuffle, as.integer(verbosity))
 
 	return(out)
 }# kmodes

@@ -8,10 +8,10 @@
 */
 
 /* .Call calls */
-extern SEXP run_kmodes_r(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
+extern SEXP run_kmodes_r(SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP, SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
-    {"run_kmodes_r", (DL_FUNC) &run_kmodes_r, 9},
+    {"run_kmodes_r", (DL_FUNC) &run_kmodes_r, 8},
     {NULL, NULL, 0}
 };
 

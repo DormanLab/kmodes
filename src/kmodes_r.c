@@ -20,7 +20,6 @@ enum RETURN_SLOT {
 	NUMBER_INITIALIZATIONS_SLOT,
 	BEST_RAND_SLOT,
 	AVERAGE_RAND_SLOT,
-	SEED_SLOT,
 	NUMBER_SLOTS,
 };
 
@@ -29,12 +28,11 @@ char const *slot_names[NUMBER_SLOTS] = {
 	"cluster.sizes", "partition",
 	"modes", "average.criterion",
 	"number.initializations",
-	"best.ari", "average.ari", "rng.seed"
+	"best.ari", "average.ari"
 };
 
 int load_data(data *dat, options *opt, SEXP data_r, int *);
 
-//         out <- .Call("run_kmodes_r", data.matrix, true.cluster, K, n.init, algorithm, init.method)
 /**
  * This function is called from R.
  *
@@ -46,7 +44,6 @@ int load_data(data *dat, options *opt, SEXP data_r, int *);
  * @param true_clus_r	true cluster (n-length INTSXP vector)
  * @param shuffle_r	shuffle the observation order in data
  * @param verbosity_r	verbosity (0, 1, 2, 3)
- * @param seed_r	random number seed
  * @return		list
  */
 SEXP run_kmodes_r(	SEXP data_r,
@@ -56,8 +53,7 @@ SEXP run_kmodes_r(	SEXP data_r,
 			SEXP ninit_r,
 			SEXP true_clus_r,
 			SEXP shuffle_r,
-			SEXP verbosity_r,
-			SEXP seed_r)
+			SEXP verbosity_r)
 {
 	int err = NO_ERROR;
 	int nprotect = 0;
@@ -105,11 +101,6 @@ SEXP run_kmodes_r(	SEXP data_r,
 		mmessage(ERROR_MSG, err, "Invalid type for verbosity level.\n");
 		goto EXIT_RUN_KMODES_R;
 	}
-	if (!isInteger(seed_r)) {
-		err = INVALID_USER_INPUT;
-		mmessage(ERROR_MSG, err, "Invalid type for seed.\n");
-		goto EXIT_RUN_KMODES_R;
-	}
 
 	/* copy user-supplied options into options object;
 	 * not much is available yet
@@ -118,7 +109,6 @@ SEXP run_kmodes_r(	SEXP data_r,
 	opt->K = * INTEGER(K_r);
 	opt->n_init = * INTEGER(ninit_r);
 	opt->quiet = * INTEGER(verbosity_r);
-	opt->seed = * INTEGER(seed_r);
 	opt->shuffle = * LOGICAL(shuffle_r);
 
 	char const *alg = CHAR(STRING_ELT(algorithm_r, 0));
@@ -174,6 +164,7 @@ SEXP run_kmodes_r(	SEXP data_r,
 		}
 
 		opt->true_cluster = (unsigned int *)INTEGER(true_clus_r);
+
 		debug_msg(opt->quiet >= VERBOSE, opt->quiet, "True cluster mem"
 			"bership for %d observations.\n", length(true_clus_r));
 	}
@@ -196,6 +187,25 @@ SEXP run_kmodes_r(	SEXP data_r,
 
 	debug_msg(opt->quiet >= DEBUG_I, opt->quiet, "Loaded data object of "
 		"dimension %dx%d.\n", dat->n_observations, dat->n_coordinates);
+
+	/* shuffle overwrites options::true_cluster */
+	if (opt->true_cluster && opt->shuffle) {
+		opt->true_cluster = malloc(dat->n_observations
+						* sizeof(*opt->true_cluster));
+		if (!opt->true_cluster) {
+			err = MEMORY_ALLOCATION;
+			mmessage(ERROR_MSG, err, "options::true_cluster\n");
+			goto EXIT_RUN_KMODES_R;
+		}
+		int *itmp = INTEGER(true_clus_r);
+		for (unsigned int i = 0; i < dat->n_observations; ++i)
+			opt->true_cluster[i] = itmp[i];
+
+/*
+		memcpy(opt->true_cluster, (unsigned int *)INTEGER(true_clus_r),
+				dat->n_observations * sizeof(*opt->true_cluster));
+*/
+	}
 
 	/* finish preparing data object */
 	if ((err = finish_make_data(dat, opt))) {
@@ -263,7 +273,6 @@ SEXP run_kmodes_r(	SEXP data_r,
 			iptr[opt->K*j + k] = dat->best_modes[k][j];
 	SET_VECTOR_ELT(return_list, MODES_SLOT, best_modes);
 	debug_msg(opt->quiet >= DEBUG_III, opt->quiet, "Added best modes.\n");
-	SET_VECTOR_ELT(return_list, SEED_SLOT, ScalarInteger(opt->seed));
 
 	if (dat->n_init) {
 		SET_VECTOR_ELT(return_list, AVERAGE_CRITERION_SLOT,
@@ -315,8 +324,6 @@ SEXP run_kmodes_r(	SEXP data_r,
 					mkChar(slot_names[BEST_RAND_SLOT]));
 	SET_STRING_ELT(return_list_names, AVERAGE_RAND_SLOT,
 					mkChar(slot_names[AVERAGE_RAND_SLOT]));
-	SET_STRING_ELT(return_list_names, SEED_SLOT,
-						mkChar(slot_names[SEED_SLOT]));
 	debug_msg(opt->quiet >= DEBUG_III, opt->quiet, "Set strings.\n");
 	setAttrib(return_list, R_NamesSymbol, return_list_names);
 
