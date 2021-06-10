@@ -2245,7 +2245,7 @@ int kmodes_init_h97(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 
 
 	/* generate each seed */
-	for (unsigned int k = 0; k < K; ++k) {
+	for (unsigned int k = k1; k < K; ++k) {
 		do {
 
 			same = 0;
@@ -2330,7 +2330,7 @@ int kmodes_init_hd17(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 		sidx = sd_idx;
 
 	/* generate each seed */
-	for (unsigned int k = 0; k < K; ++k) {
+	for (unsigned int k = k1; k < K; ++k) {
 		do {
 
 			same = 0;

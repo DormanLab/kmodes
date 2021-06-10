@@ -1282,7 +1282,7 @@ int parse_options(options *opt, int argc, const char **argv)
 					"\"perturb\" %u seeds rather "
 					"than re-initialize.\n",
 					opt->n_perturb);
-				if (i + 1 < argc && argv[i][0] != '-') {
+				if (i + 1 < argc && argv[i + 1][0] != '-') {
 					opt->inner_perturb = read_uint(argc,
 							argv, ++i, (void *)opt);
 					debug_msg(MINIMAL, opt->quiet, "Using "
