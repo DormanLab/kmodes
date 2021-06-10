@@ -23,6 +23,7 @@ int read_int(int argc, const char **argv, int i, void *obj);
 unsigned int read_uint(int argc, const char **argv, int i, void *obj);
 long read_long(int argc, const char **argv, int i, void *obj);
 unsigned long read_ulong(int argc, const char **argv, int i, void *obj);
+unsigned long read_ulonglong(int argc, const char **argv, int i, void *obj);
 double read_cmdline_double(int argc, const char **argv, int i, void *obj);
 char read_cmdline_char(int argc, const char **argv, int i, void *obj);
 

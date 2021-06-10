@@ -6,6 +6,7 @@
 
 #include <ctype.h>
 #include <limits.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <Rmath.h>
@@ -54,6 +55,7 @@ static inline int initialize(data *dat, options *opt);
 void compute_summary(data *dat, options *opt);
 void write_best_solution(data *dat, options *opt, FILE *fps);
 static inline void stash_state(data *dat, options *opt);
+uint_fast64_t hash64(uint_fast64_t x);
 void free_data_for_k(data *dat, options *opt);
 
 #ifdef MATHLIB_STANDALONE
@@ -647,7 +649,7 @@ int restore_state(data *dat, options *opt)
  * @param fpi	initialization file
  * @return	error status
  */
-int initialize_outfiles(data *dat, options * opt, FILE **in_fps, FILE **in_fpi)
+int initialize_outfiles(data *dat, options *opt, FILE **in_fps, FILE **in_fpi)
 {
 	FILE *fps = NULL;
 	FILE *fpi = NULL;
@@ -679,7 +681,8 @@ int initialize_outfiles(data *dat, options * opt, FILE **in_fps, FILE **in_fpi)
 		if (opt->continue_run)
 			kmodes_fprintf(fps, "***Continuing run\n");
 		if (opt->K > 0) {
-			kmodes_fprintf(fps, "Seed: %lu\n", opt->seed);
+			kmodes_fprintf(fps, "Seeds: %llu %llu\n", opt->seed,
+								opt->seed2);
 			kmodes_fprintf(fps, "Algorithm: %s%s\n",
 				kmodes_algorithm(opt->kmodes_algorithm),
 					opt->update_modes ? " with mode updates"
@@ -807,39 +810,38 @@ void write_status(data *dat, options *opt, FILE *fps, FILE *fpi,            /**/
 {
 	/* output information about found solution to stdout */
 	if (opt->quiet >= MINIMAL)
-		kmodes_printf("Init %*u (%*u iterations):",
+		printf("Init %*u (%*u iterations):",
 			(int)(log10(opt->n_init) + 1), (opt->seconds > 0
 			? opt->n_init : i),
 			(int)(log10(dat->max_iter) + 1), dat->iter);
 
 	for (unsigned int k = 0; k < opt->K; ++k)
 		if (opt->quiet >= MINIMAL)
-			kmodes_printf(" %*.0f",
-					(int)(log10(dat->worst_cost) + 1),
+			printf(" %*.0f", (int)(log10(dat->worst_cost) + 1),
 							dat->criterion[k]);
 
 	if (opt->quiet >= MINIMAL)
-		kmodes_printf(": %*.0f (%*.0f)", (int)(log10(dat->worst_cost)
+		printf(": %*.0f (%*.0f)", (int)(log10(dat->worst_cost)
 			+ 1), dat->total, (int)(log10(dat->worst_cost) + 1),
 			dat->best_total);
 
 	if (opt->true_cluster && opt->quiet >= MINIMAL)
-		kmodes_printf(" %.3f %.3f", mi, vi);
+		printf(" %.3f %.3f", mi, vi);
 
 	if ((opt->simulate || opt->true_cluster) && opt->quiet >= MINIMAL)
-		kmodes_printf(" %.3f (%.3f)", ar, dat->best_rand);
+		printf(" %.3f (%.3f)", ar, dat->best_rand);
 	if (opt->quiet >= MINIMAL)
-		kmodes_printf("\n");
+		printf("\n");
 
 	/* output initialization information */
 	if (fpi || fps) {
-		kmodes_fprintf(fpi ? fpi : fps, "%u %u", opt->seconds > 0 ? opt->n_init
+		fprintf(fpi ? fpi : fps, "%u %u", opt->seconds > 0 ? opt->n_init
 			: i, dat->iter);
 		fprint_doubles(fpi ? fpi : fps, dat->criterion, opt->K, 0, 0);
-		kmodes_fprintf(fpi ? fpi : fps, " %.0f %.0f", dat->total,
-			dat->best_total);
+		fprintf(fpi ? fpi : fps, " %.0f %.0f", dat->total,
+							dat->best_total);
 		if (opt->simulate || opt->true_cluster)
-			kmodes_fprintf(fpi ? fpi : fps, " %f %f %f %f", ar,
+			fprintf(fpi ? fpi : fps, " %f %f %f %f", ar,
 				dat->best_rand, mi, vi);
 	}
 
@@ -915,7 +917,7 @@ void update_status(data *dat, options *opt, FILE *fps, FILE *fpi,           /**/
 		dat->best_rand = ar;
 
 #ifdef MATHLIB_STANDALONE
-	write_status(dat, opt, fpi, fps, i, ar, mi, vi);
+	write_status(dat, opt, fps, fpi, i, ar, mi, vi);
 #endif
 
 	/* the rest is necessary bookkeeping */
@@ -923,7 +925,7 @@ void update_status(data *dat, options *opt, FILE *fps, FILE *fpi,           /**/
 
 #ifdef MATHLIB_STANDALONE
 	if (fpi || fps)
-		kmodes_fprintf(fpi ? fpi : fps, " %f\n", ELAP_TIME(start) - dat->uncounted_seconds);
+		fprintf(fpi ? fpi : fps, " %f\n", ELAP_TIME(start) - dat->uncounted_seconds);
 #endif
 
 } /* update_status */
@@ -969,8 +971,8 @@ int make_options(options **opt) {
 #endif
 	(*opt)->use_hartigan = 0;
 	(*opt)->target = 0;
-	(*opt)->seed = 0;
-	(*opt)->seed2 = 0;
+	(*opt)->seed = time(NULL);
+	(*opt)->seed2 = hash64((*opt)->seed);
 	(*opt)->seed_idx = NULL;
 	(*opt)->seed_set = NULL;
 	(*opt)->n_sd_idx = 0;
@@ -1170,8 +1172,14 @@ int parse_options(options *opt, int argc, const char **argv)
 			if (i + 1 == argc)
 				goto CMDLINE_ERROR;
 			opt->soln_file = argv[++i];
-			if (i + 1 < argc && argv[i+1][0] != '-')
+			debug_msg(QUIET <= opt->quiet, opt->quiet,
+				"Solution file = %s\n", opt->soln_file);
+			if (i + 1 < argc && argv[i+1][0] != '-') {
 				opt->ini_file = argv[++i];
+				debug_msg(QUIET <= opt->quiet, opt->quiet,
+					"Initialization file = %s\n",
+							opt->ini_file);
+			}
 			break;
 		case 'i':
 			if (i + 1 == argc || argv[i + 1][0] == '-')
@@ -1314,14 +1322,14 @@ int parse_options(options *opt, int argc, const char **argv)
 					"initializations; %u\n",
 					opt->n_inner_init);
 			} else {
-				opt->seed = read_uint(argc, argv, ++i,
+				opt->seed = read_ulonglong(argc, argv, ++i,
 					(void *)opt);
 				if (i + 1 < argc && argv[i+1][0] != '-')
-					opt->seed2 = read_uint(argc, argv, ++i,
-								(void *)opt);
+					opt->seed2 = read_ulonglong(argc, argv,
+							++i, (void *)opt);
 				debug_msg(MINIMAL <= fxn_debug,
 					opt->quiet, "Seed(s): "
-					"%lu %lu\n", opt->seed, opt->seed2);
+					"%llu %llu\n", opt->seed, opt->seed2);
 			}
 			if (errno)
 				goto CMDLINE_ERROR;
@@ -3616,6 +3624,22 @@ void compute_jump_stats(double cost, double rrcost, double krcost,
 
 } /* compute_jump_stats */
 
+/**
+ * Simple hash function: produce "random", at least jumbled, bits.
+ * https://stackoverflow.com/questions/664014/what-integer-hash-function-are-good-that-accepts-an-integer-hash-key
+ *
+ * @param t	time object from time()
+ * @return	jumbled bits
+ */
+uint_fast64_t hash64(uint_fast64_t x)
+{
+	uint_fast64_t y = (x ^ (x >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
+
+	y = (y ^ (y >> 27)) * UINT64_C(0x94d049bb133111eb);
+	y = y ^ (y >> 31);
+	return y;
+} /* hash64 */
+
 
 /**
  * Free data object.
@@ -3761,7 +3785,7 @@ void fprint_usage(FILE *fp, const char *cmdname, void *obj)
 	kmodes_fprintf(fp, "\t--shuffle\n\t\t"
 		"Shuffle the observation order on each initialization (Default: %s).\n", opt->shuffle ? "yes" : "no");
 	kmodes_fprintf(fp, "\t-r, --random SEED1 SEED2\n\t\t"
-		"Set random number seeds (Default: %lu %lu).\n", opt->seed, opt->seed2);
+		"Set random number seeds (Default: %llu %llu).\n", opt->seed, opt->seed2);
 	kmodes_fprintf(fp, "\t--continue\n\t\tContinue previous run (Default: %s).\n", opt->continue_run ? "yes" : "no");
 	kmodes_fprintf(fp, "\t-m, --min OPTIMUM\n\t\t"
 		"Record number of initializations and time to this target optimum.\n");
@@ -3792,7 +3816,7 @@ void fprint_usage(FILE *fp, const char *cmdname, void *obj)
 	kmodes_fprintf(fp, "\t   IFILE\n\t\tProvide file with possible seeds.\n");
 	kmodes_fprintf(fp, "\t\tIf more than K seeds in IFILE, then method is 'rnds'.\n");
 	kmodes_fprintf(fp, "\t\tIf K seeds in IFILE, then initialize with these seeds.\n");
-        kmodes_fprintf(fp, "\t--perturb [INT]\n\t\tPerturb initialization.\n"
+        kmodes_fprintf(fp, "\t--perturb [INT]\n\t\tPerturb initialization.\n\t\t"
 		"If INT provided, then perturb INT times for each random initialization.\n\t\t"
 		"Otherwise, only initialize once.\n");
 	kmodes_fprintf(fp, "\t-p, --partition PFILE\n\t\t"

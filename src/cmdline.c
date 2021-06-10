@@ -167,6 +167,32 @@ unsigned long read_ulong(int argc, const char **argv, int i, void *obj)
 } /* read_ulong */
 
 /**
+ * Read an unsigned long from the next argument on the command-line.
+ *
+ * @param argc the number of arguments
+ * @param argv the list of command-line arguments strings
+ * @param i the argument we are to parse at int
+ * @param obj void pointer to additional usage information
+ * @return the parsed long or errno is error
+ */
+unsigned long read_ulonglong(int argc, const char **argv, int i, void *obj)
+{
+	unsigned long long n;
+	char *ret_ptr;
+
+	if (i == argc)
+		return (errno = usage_error(argv, i-1, obj));
+
+	errno = 0;
+	n = strtoull(argv[i], &ret_ptr, 0);
+	if (errno || ret_ptr == argv[i])
+		return (errno = usage_error(argv, i, obj));
+
+	return n;
+} /* read_ulonglong */
+
+
+/**
  * Read a double from the next argument in the command-line argument
  * list.  This code avoids repetition in main().
  *
