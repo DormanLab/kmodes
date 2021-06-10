@@ -1,11 +1,42 @@
-# to compile standalone executable
-cd src
+This is a very concise listing, for developers, detailing how to install and work with the source files in this github repository. If you are a regular user, you should see the README.md file, best read on github: https://github.com/DormanLab/kmodes.git
+
+# to compile standalone executable only
+git clone https://github.com/DormanLab/kmodes.git
+cd kmodes/src
+cmake .
+make
+sudo cp run_kmodes /usr/local/bin
+cd ../..	# for further development
+make clean	# you should clean up the compile detritus
+
+# to install R package
+## the easiest way is from R using devtools
+devtools::install_github("DormanLab/kmodes")
+## but you can also install from source
+git clone https://github.com/DormanLab/kmodes.git
+R CMD build kmodes
+sudo R CMD INSTALL kmodes*.tar.gz
+
+# to work with both packages at once, it is best to separate the compiles and clean often
+git clone https://github.com/DormanLab/kmodes.git
+cd kmodes/src
 cmake -S . -B build
 cd build
 make
 sudo cp run_kmodes /usr/local/bin
-
-# to hand-compile R shared library
+cd ../../
+make clean	# clean up any left-over compile detritus in case you did not use a build directory
+Rscript --vanilla -e "devtools::check()"	# check package
+make clean	# critical to clean up check detritus
+sudo Rscript --vanilla -e "devtools::install()"	# install from source
+# or, another way:
+cd ..
+R CMD build kmodes
+sudo R CMD INSTALL kmodes*.tar.gz
+# or another way: but this appears to NOT respect the build process, compiling for example, cmdline.c
+cd kmodes
+sudo R CMD INSTALL .
+# if all the builds and R scripts, you can hand-compile and test the R shared library
 R CMD SHLIB -o kmodes.so cluster.c entropy.c error.c hash.c kmodes.c kmodes_init.c kmodes_r.c matrix_exponential.c order.c r8slib.c run_kmodes.c sample.c timing_mach.c
 # then test
 scripts/test_kmodes.R
