@@ -194,6 +194,7 @@ kmodes_hw(data_t **x, unsigned int n, unsigned int p, data_t **c,
 
 	/* now the interesting case of 1 < k < m */
 
+	/* setup: shared memory allocation and initial values */
 	if (!__live && allocate_hw_memory(n, p, K)) {
 		*ifault = KMODES_MEMORY_ERROR;
 		return INFINITY;
@@ -343,6 +344,7 @@ kmodes_hw(data_t **x, unsigned int n, unsigned int p, data_t **c,
 		optra(x, n, p, c, K, ic1, __ic2, nc, __live, __cd, __dis, &indx,
 						__nj, __njc, __nkjc, __c2,
 						opt->weighted, opt->use_qtran);
+
 		/* m observations processed and no change, we're done */
 		if (indx == n)
 			break;
@@ -474,7 +476,8 @@ void optra(data_t **a, unsigned int m, unsigned int n, data_t **c, unsigned int 
 			 * last considered: re-compute membership cost
 			 * note: qtran unsyncs cd and live by keeping membership
 			 * cost updated and leaving clusters live, so this
-			 * cost does not need recalculation after qtran() */
+			 * cost does not need recalculation after qtran()
+			 */
 			if (i < cd[l1])
 				d[i] = wgt ? weighted_cost_of_membership(
 					nkt[l1], a[i], c[l1], c2[l1], n, nt,
