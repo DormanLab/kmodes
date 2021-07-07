@@ -1096,6 +1096,7 @@ int parse_options(options *opt, int argc, const char **argv)
 		a = argv[i][j];
 		while (a == '-' && ++j < (int) strlen(argv[i]))
 			a = argv[i][j];
+
 		switch(a) {
 
 		case 'c':
@@ -3042,6 +3043,7 @@ int select_k_by_dm(options *opt)
 		for (unsigned int j = 0; j < opt->n_nup_ini_files[l]; ++j) {
 			opt->ini_file = opt->nup_ini_files[l][j];
 			FILE *fp = fopen(opt->ini_file, "r");
+
 			if (!fp) {
 				err = mmessage(ERROR_MSG, FILE_NOT_FOUND, "C"
 					"ould not open '%s'.\n", opt->ini_file);
@@ -3132,9 +3134,9 @@ int read_ini_data(FILE *fp, unsigned int *of_vals, double *t_vals,
 
 	do {
 		/* initialization index */
-		if (fscanf(fp, "%*u %*u") != 0)
+		if (fscanf(fp, "%*u %*u") != 0 && !feof(fp))
 			return mmessage(ERROR_MSG, FILE_FORMAT_ERROR,
-                                        "Line %u.\n", *nini - n_start);
+                                        "Line %u (%u).\n", *nini - n_start);
 		if (feof(fp))
 			break;
 		for (unsigned int k = 0; k < opt->K; ++k)
