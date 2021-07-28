@@ -48,7 +48,7 @@ void update_status(data *dat, options *opt, FILE *fps, FILE *fpi, unsigned int i
 void compute_costs(double *crit, double *var, double *size, unsigned int n, unsigned int K, double *cost, double *rrcost, double *krcost, double *sd, double *rsd, double *ksd);
 void compute_jump_stats(double cost, double rrcost, double krcost, double pcost, double prrcost, double pkrcost, double *jump, double *rjump, double *kjump, double Y, int reset);
 unsigned int count_initializations(FILE *fp);
-int read_ini_data(FILE *fp, unsigned int *of_vals, double *t_vals, unsigned int *nini, options *opt);
+int read_ini_data(char const *filename, unsigned int *of_vals, double *t_vals, unsigned int *nini, options *opt);
 int restore_state(data *dat, options *opt);
 int shuffle_data(data *dat, options *opt);
 static inline int initialize(data *dat, options *opt);
@@ -116,7 +116,7 @@ int run_kmodes(data *dat, options *opt)
 	if (opt->init_method == KMODES_INIT_ABUNDANCE
 				&& (err = mask_nhash(dat, opt)))
 		goto CLEAR_AND_EXIT;
-        
+	
 	/* will run k-modes: do setup */
 	if (opt->n_init && (opt->kmodes_algorithm == KMODES_HUANG
 			|| opt->kmodes_algorithm == KMODES_HARTIGAN_WONG)) {
@@ -148,26 +148,26 @@ int run_kmodes(data *dat, options *opt)
 			} else {
 				perturb(dat, opt);
 			}
-        } else {
-            if (opt->inner_perturb) { /* if use 2 settings perturbations */
-                if (i%(opt->inner_perturb + 1) == 0) {
-                    if((err = initialize(dat, opt)))
-                        goto CLEAR_AND_EXIT;
-                }
-                else if ((err = perturb_general(dat, opt))) {
-                    goto CLEAR_AND_EXIT;
-                }
-            } else {
-                if (i && opt->n_perturb && (err = perturb_general(dat, opt)))
-                    goto CLEAR_AND_EXIT;
-                if ((!i || !opt->n_perturb) && (err = initialize(dat, opt))) {
-                    mmessage(ERROR_MSG, CUSTOM_ERROR, "%s\n",
-                                    kmodes_error(err));
-                    goto CLEAR_AND_EXIT;
-                }
-            }
-        }
-        
+	} else {
+	    if (opt->inner_perturb) { /* if use 2 settings perturbations */
+		if (i%(opt->inner_perturb + 1) == 0) {
+		    if((err = initialize(dat, opt)))
+			goto CLEAR_AND_EXIT;
+		}
+		else if ((err = perturb_general(dat, opt))) {
+		    goto CLEAR_AND_EXIT;
+		}
+	    } else {
+		if (i && opt->n_perturb && (err = perturb_general(dat, opt)))
+		    goto CLEAR_AND_EXIT;
+		if ((!i || !opt->n_perturb) && (err = initialize(dat, opt))) {
+		    mmessage(ERROR_MSG, CUSTOM_ERROR, "%s\n",
+				    kmodes_error(err));
+		    goto CLEAR_AND_EXIT;
+		}
+	    }
+	}
+	
 		/* run one of k-modes algorithms */
 		if (opt->kmodes_algorithm == KMODES_HUANG) {
 			dat->total = kmodes_huang(dat->dmat,
@@ -805,7 +805,7 @@ int initialize_outfiles(data *dat, options *opt, FILE **in_fps, FILE **in_fpi)
  * @param vi	variation information for current solution
  * @return	number of seconds spend in this function
  */
-void write_status(data *dat, options *opt, FILE *fps, FILE *fpi,            /**/
+void write_status(data *dat, options *opt, FILE *fps, FILE *fpi,	    /**/
 	unsigned int i, double ar, double mi, double vi)
 {
 	/* output information about found solution to stdout */
@@ -859,7 +859,7 @@ void write_status(data *dat, options *opt, FILE *fps, FILE *fpi,            /**/
  * @param start	epoch program started
  * @return	number of seconds spend in this function
  */
-void update_status(data *dat, options *opt, FILE *fps, FILE *fpi,           /**/
+void update_status(data *dat, options *opt, FILE *fps, FILE *fpi,	   /**/
 	unsigned int i, TIME_STRUCT *start)
 {
 	TIME_STRUCT stop;	/* timing */
@@ -1230,7 +1230,7 @@ int parse_options(options *opt, int argc, const char **argv)
 							": %u",
 							opt->resample_sites);
 				}
-                
+		
 			/* assume seed indices are being provided */
 			} else if (access(argv[i+1], F_OK) == -1) {
 
@@ -2684,7 +2684,7 @@ int finish_make_data(data *dat, options *opt)
 
 
 	return NO_ERROR;
-} /* finish_make_data */                                                    /**/
+} /* finish_make_data */						    /**/
 
 /**
  * Shuffle data input order.  Since the k-modes algorithms take the observations
@@ -2739,7 +2739,7 @@ int shuffle_data(data *dat, options *opt)
  * @param fps	solution file pointer
  * @param fpi	initialization file pointer
  */
-void compute_summary(data *dat, options *opt)                               /**/
+void compute_summary(data *dat, options *opt)			       /**/
 {
 	if (dat->ntimes > 1) {
 		dat->avg_time /= dat->ntimes;
@@ -2791,7 +2791,7 @@ void compute_summary(data *dat, options *opt)                               /**/
  * @param fpi	initialization file pointer
  */
 #ifdef MATHLIB_STANDALONE
-void write_best_solution(data *dat, options *opt, FILE *fps)                /**/
+void write_best_solution(data *dat, options *opt, FILE *fps)		/**/
 {
 	/* report best solution to stdout and outfile */
 	if (dat->n_init) {
@@ -3027,32 +3027,15 @@ int select_k_by_dm(options *opt)
 		/* extract objective function and times */
 		n_init = 0;
 		for (unsigned int j = 0; j < opt->n_result_files[l]; ++j) {
-			opt->ini_file = opt->result_files[l][j];
-			FILE *fp = fopen(opt->ini_file, "r");
-			if (!fp) {
-				err = mmessage(ERROR_MSG, FILE_NOT_FOUND, "C"
-					"ould not open '%s'.\n", opt->ini_file);
+			if ((err = read_ini_data(opt->result_files[l][j],
+				obj_func_vals, time_vals, &n_init, opt)))
 				goto RETURN_SELECT_K_BY_DM;
-			}
-			if ((err = read_ini_data(fp, obj_func_vals, time_vals,
-								&n_init, opt)))
-				goto RETURN_SELECT_K_BY_DM;
-			fclose(fp);
 		}
 		/* count number of initializations without update */
 		for (unsigned int j = 0; j < opt->n_nup_ini_files[l]; ++j) {
-			opt->ini_file = opt->nup_ini_files[l][j];
-			FILE *fp = fopen(opt->ini_file, "r");
-
-			if (!fp) {
-				err = mmessage(ERROR_MSG, FILE_NOT_FOUND, "C"
-					"ould not open '%s'.\n", opt->ini_file);
+			if ((err = read_ini_data(opt->nup_ini_files[l][j],
+				obj_func_vals, time_vals, &n_init, opt)))
 				goto RETURN_SELECT_K_BY_DM;
-			}
-			if ((err = read_ini_data(fp, obj_func_vals, time_vals,
-								&n_init, opt)))
-				goto RETURN_SELECT_K_BY_DM;
-			fclose(fp);
 		}
 
 		/* find quantile */
@@ -3126,60 +3109,74 @@ RETURN_SELECT_K_BY_DM:
 } /* select_k_by_dm */
 #endif
 
-int read_ini_data(FILE *fp, unsigned int *of_vals, double *t_vals,
+int read_ini_data(char const *filename, unsigned int *of_vals, double *t_vals,
 					unsigned int *nini, options *opt)
 {
 	unsigned int n_start = *nini;
 	unsigned int tmp = 0;
+	FILE *fp = fopen(filename, "r");
+
+	if (!fp)
+		return mmessage(ERROR_MSG, FILE_NOT_FOUND, "Could not open "
+						"'%s'.\n", filename);
 
 	do {
 		/* initialization index */
 		if (fscanf(fp, "%*u %*u") != 0 && !feof(fp))
-			return mmessage(ERROR_MSG, FILE_FORMAT_ERROR,
-                                        "Line %u (%u).\n", *nini - n_start);
+			return mmessage(ERROR_MSG, FILE_FORMAT_ERROR, "File "
+					"'%s', line %u.\n", filename,
+							*nini - n_start);
 		if (feof(fp))
 			break;
 		for (unsigned int k = 0; k < opt->K; ++k)
 			/* per-cluster criteria */
 			if (fscanf(fp, "%u", &tmp) != 1)
 				return mmessage(ERROR_MSG, FILE_FORMAT_ERROR,
-					"Line %u.\n", *nini - n_start);
+					"File '%s', line %u.\n", filename,
+							 *nini - n_start);
 		if (fscanf(fp, "%u", &of_vals[*nini]) != 1)
 			return mmessage(ERROR_MSG, FILE_FORMAT_ERROR,
-				"Line %u.\n", *nini - n_start);
+				"File '%s', line %u.\n", filename,
+							*nini - n_start);
 		if (*nini == n_start) {
 			char c = fgetc(fp);
 			while ((c = fgetc(fp)) && c != ' ' && !feof(fp));
 		} else {
 			if (fscanf(fp, "%*f") != 0)
 				return mmessage(ERROR_MSG, FILE_FORMAT_ERROR,
-						"Line %u.\n", *nini - n_start);
+					"File '%s', line %u.\n", filename,
+							*nini - n_start);
 		}
 		if (opt->simulate || opt->true_cluster) {
 			if (*nini == n_start) {
 				if (fscanf(fp, "%*f") != 0)
 					return mmessage(ERROR_MSG,
-						FILE_FORMAT_ERROR, "Line %u.\n",
-							 *nini - n_start);
+						FILE_FORMAT_ERROR, "File '%s', "
+						"line %u.\n", filename, 
+								*nini - n_start);
 				char c = fgetc(fp);
 				while ((c = fgetc(fp)) && c != ' ' && !feof(fp));
 				if (fscanf(fp, "%*f %*f") != 0)
 					return mmessage(ERROR_MSG,
-						FILE_FORMAT_ERROR, "Line %u.\n",
-							 *nini - n_start);
+						FILE_FORMAT_ERROR, "File '%s', "
+						"line %u.\n", filename,
+								*nini - n_start);
 			} else {
 				if (fscanf(fp, "%*f %*f %*f %*f") != 0)
 					return mmessage(ERROR_MSG,
-						FILE_FORMAT_ERROR, "Line %u.\n",
-							 *nini - n_start);
+						FILE_FORMAT_ERROR, "File '%s', "
+						"line %u.\n", filename,
+								*nini - n_start);
 			}
 		}
 		if (fscanf(fp, "%lf", &t_vals[*nini]) != 1)
 			return mmessage(ERROR_MSG, FILE_FORMAT_ERROR,
-				"line %u (did you use --column?).\n",
-							*nini - n_start);
+				"File '%s', line %u (did you use --column?).\n",
+						filename, *nini - n_start);
 		++(*nini);
 	} while (!feof(fp));
+
+	fclose(fp);
 
 	return NO_ERROR;
 } /* read_ini_data */
@@ -3800,25 +3797,25 @@ void fprint_usage(FILE *fp, const char *cmdname, void *obj)
 		"\t\tRandom initialization.  Repeat as needed with following arguments.\n"
 		"\t   METHOD\n\t\t"
 		"Set initialization method, one of:\n");
-	kmodes_fprintf(fp, "\t\t  rnd          K random observations selected as seeds (Default: %s).\n", opt->init_method == KMODES_INIT_RANDOM_SEEDS ? "yes" : "no");
-	kmodes_fprintf(fp, "\t\t  h97          Huang's initialization method (Default: %s).\n", opt->init_method == KMODES_INIT_H97 ? "yes" : "no");
+	kmodes_fprintf(fp, "\t\t  rnd	  K random observations selected as seeds (Default: %s).\n", opt->init_method == KMODES_INIT_RANDOM_SEEDS ? "yes" : "no");
+	kmodes_fprintf(fp, "\t\t  h97	  Huang's initialization method (Default: %s).\n", opt->init_method == KMODES_INIT_H97 ? "yes" : "no");
 	kmodes_fprintf(fp, "\t\t  h97rnd       Huang's initialization method randomized (Default: %s).\n", opt->init_method == KMODES_INIT_H97_RANDOM ? "yes" : "no");
-	kmodes_fprintf(fp, "\t\t  hd17         Huang's initialization method interpreted by de Vos (Default: %s).\n", opt->init_method == KMODES_INIT_HD17 ? "yes" : "no");
-	kmodes_fprintf(fp, "\t\t  clb09        Cao et al.'s initialization method (Default: %s).\n", opt->init_method == KMODES_INIT_CLB09 ? "yes" : "no");
+	kmodes_fprintf(fp, "\t\t  hd17	 Huang's initialization method interpreted by de Vos (Default: %s).\n", opt->init_method == KMODES_INIT_HD17 ? "yes" : "no");
+	kmodes_fprintf(fp, "\t\t  clb09	Cao et al.'s initialization method (Default: %s).\n", opt->init_method == KMODES_INIT_CLB09 ? "yes" : "no");
 	kmodes_fprintf(fp, "\t\t  clb09rnd     Cao et al.'s initialization method randomized (Default: %s).\n", opt->init_method == KMODES_INIT_CLB09_RANDOM ? "yes" : "no");
-	kmodes_fprintf(fp, "\t\t  av07         k-modes++ (Default: %s).\n", opt->init_method == KMODES_INIT_AV07 ? "yes" : "no");
+	kmodes_fprintf(fp, "\t\t  av07	 k-modes++ (Default: %s).\n", opt->init_method == KMODES_INIT_AV07 ? "yes" : "no");
 	kmodes_fprintf(fp, "\t\t  av07grd      greedy k-modes++ (Default: %s).\n", opt->init_method == KMODES_INIT_AV07_GREEDY ? "yes" : "no");
-	kmodes_fprintf(fp, "\t\t  rndp         given partition via --column, select one\n"
-		    "\t\t               observation from each partition (Default: %s).\n", opt->init_method == KMODES_INIT_RANDOM_FROM_PARTITION ? "yes" : "no");
-	kmodes_fprintf(fp, "\t\t  rnds         given seed observations, randomly select K;\n"
-		    "\t\t               if K seeds provided, this is deterministic (Default: %s).\n", opt->init_method == KMODES_INIT_RANDOM_FROM_SET ? "yes" : "no");
+	kmodes_fprintf(fp, "\t\t  rndp	 given partition via --column, select one\n"
+		    "\t\t	       observation from each partition (Default: %s).\n", opt->init_method == KMODES_INIT_RANDOM_FROM_PARTITION ? "yes" : "no");
+	kmodes_fprintf(fp, "\t\t  rnds	 given seed observations, randomly select K;\n"
+		    "\t\t	       if K seeds provided, this is deterministic (Default: %s).\n", opt->init_method == KMODES_INIT_RANDOM_FROM_SET ? "yes" : "no");
 	kmodes_fprintf(fp, "\t\t  mskabun INT  Initialize by (masked) abundance with perturbation (Default: %s).\n", opt->init_method == KMODES_INIT_ABUNDANCE ? "yes" : "no");
-	kmodes_fprintf(fp, "\t\t               The number of masked abundances exceeding 1 (Default: %d)\n", opt->abunk);
+	kmodes_fprintf(fp, "\t\t	       The number of masked abundances exceeding 1 (Default: %d)\n", opt->abunk);
 	kmodes_fprintf(fp, "\t   INT1 ... INTK\n\t\tSet the (0-based) indices of the seeds.\n");
 	kmodes_fprintf(fp, "\t   IFILE\n\t\tProvide file with possible seeds.\n");
 	kmodes_fprintf(fp, "\t\tIf more than K seeds in IFILE, then method is 'rnds'.\n");
 	kmodes_fprintf(fp, "\t\tIf K seeds in IFILE, then initialize with these seeds.\n");
-        kmodes_fprintf(fp, "\t--perturb [INT]\n\t\tPerturb initialization.\n\t\t"
+	kmodes_fprintf(fp, "\t--perturb [INT]\n\t\tPerturb initialization.\n\t\t"
 		"If INT provided, then perturb INT times for each random initialization.\n\t\t"
 		"Otherwise, only initialize once.\n");
 	kmodes_fprintf(fp, "\t-p, --partition PFILE\n\t\t"
