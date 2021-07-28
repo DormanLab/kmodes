@@ -3347,7 +3347,7 @@ int select_k(data *dat, options *opt)
 		compute_costs(dat->criterion, var, asize, dat->n_observations, opt->K, &cost, &rrcost, &krcost, &sd, &rsd, &ksd);
 		debug_msg(DEBUG_I <= fxn_debug, fxn_debug, "Costs are: %f %f %f\n", cost, rrcost, krcost);
 
-		if (!l && opt->K > 1) {
+		if (!l && opt->K > opt->min_k) {
 			pcost = cost;
 			prrcost = rrcost;
 			pkrcost = krcost;
