@@ -2622,13 +2622,13 @@ int finish_make_data(data *dat, options *opt)
 			}
 			seeds = opt->seed_set;
 			opt->init_method = KMODES_INIT_RANDOM_FROM_SET;
-		} else if (opt->n_seed_set < opt->K)
+		} else if (opt->n_seed_set < opt->K) {
 			mmessage(WARNING_MSG, NO_ERROR,
 				"Requesting %u clusters, but only %u seeds in "
 				"seed file '%s'.  Will generate remaining seeds"
 				" with chosen initialization method.\n", opt->K,
 				opt->n_seed_set, opt->sfile);
-		else {	/* exactly options::K seeds provided */
+		} else {	/* exactly options::K seeds provided */
 			opt->init_method = KMODES_INIT_USER_SEEDS;
 			if (opt->n_init > 1)
 				mmessage(WARNING_MSG, INVALID_USER_INPUT,
@@ -2642,7 +2642,8 @@ int finish_make_data(data *dat, options *opt)
 			if (fscan_data_ts(fp, seeds[k], p)) {
 				fclose(fp);
 				return mmessage(ERROR_MSG, FILE_FORMAT_ERROR,
-					opt->sfile);
+					"Failed to read seed %u (1-indexing) in"
+					" file '%s'\n", k + 1, opt->sfile);
 			}
 			if (opt->subtract_one)
 				for (unsigned int j = 0; j < p; ++j) {
