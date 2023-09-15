@@ -44,7 +44,7 @@ int clock_gettime(const clockid_t id, struct timespec *tspec);
 #endif
 
 /* Not POSIX-compliant: resort to C standard */
-#else			
+#elif !defined(_TIMESPEC_DEFINED)
 
 #define __NON_POSIX__
 
