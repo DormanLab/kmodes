@@ -1,7 +1,7 @@
 k-modes
 =======
 
-This software implements algorithms from [Huang (1997)](http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.6.4718), [Chaturvedi _et al._ (2001)](https://doi.org/10.1007/s00357-001-0004-3), and Dorman and Maitra (2020) to minimize the k-modes objective function.
+This software implements algorithms from [Huang (1997)](https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.6.4718), [Chaturvedi _et al._ (2001)](https://doi.org/10.1007/s00357-001-0004-3), and Dorman and Maitra (2020) to minimize the k-modes objective function.
 It also implements several initialization methods and K-selection methods.
 It has primarily been designed as a standalone executable, but you can now get some of the functionality by installing the R package.
 Skip to [Installation](#installation) to see how.
@@ -437,20 +437,20 @@ RUN_KMODES
 # Acknowledgements <a name = "acknowledgements" />
 
 - This software makes use of the [R8lib library](https://people.sc.fsu.edu/~jburkardt/c_src/r8lib/r8lib.html), which was released under [GNU LGPL](https://www.gnu.org/licenses/lgpl-3.0.en.html).
-- MacQueen's version of the k-modes algorithm was published in [Huang (1997)](http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.6.4718).
+- MacQueen's version of the k-modes algorithm was published in [Huang (1997)](https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.6.4718).
 - Lloyd's version of the k-modes algorithm was published in [Chaturvedi _et al._ (2001)](https://doi.org/10.1007/s00357-001-0004-3).
 - The Hartigan and Wong algorithm for k-means was published in [Hartigan and Wong (1979)](https://www.jstor.org/stable/2346830).
-- The h97 initialization method was published in [Huang (1997)](http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.6.4718).
+- The h97 initialization method was published in [Huang (1997)](https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.6.4718).
 The randomized version h97rnd was suggested by us.
 Another randomized version hd17 was suggested by the author of [Python k-modes](https://pypi.org/project/kmodes/)
 - The clb09 initialization method was published in [Cao _et al._  (2009)](http://dx.doi.org/10.1016/j.eswa.2009.01.060).  The randomized version was suggested by us.
-- The initialization method k-means++ was published in [Arthur and Vassilvitskii (2007)](http://dl.acm.org/citation.cfm?id=1283383.1283494).
+- The initialization method k-means++ was published in [Arthur and Vassilvitskii (2007)](https://dl.acm.org/citation.cfm?id=1283383.1283494).
 A greedy version of k-means++ was proposed by the same authors.
 The initialization method k-modes++ and its greedy version were inspired by k-means++, and they were proposed by us.
 - The adjusted RAND index was published in [Hubert and Arabie (1985)](http://dx.doi.org/10.1007/BF01908075).
 - Normalized mutual information was published in [Kvalseth (1987)](https://ieeexplore.ieee.org/document/4309069).
 - Normalized variation of information was published in [Vinh _et al._ (2010)](https://dl.acm.org/doi/10.5555/1756006.1953024).
-- MacQueen's and Lloyd's algorithms for k-modes are available in [R package klaR](https://cran.r-project.org/web/packages/klaR/index.html).
+- MacQueen's and Lloyd's algorithms for k-modes are available in [R package klaR](https://CRAN.R-project.org/package=klaR).
 - MacQueen's algorithm for k-modes is available in [Python](https://pypi.org/project/kmodes/).
 
 
