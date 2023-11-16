@@ -139,7 +139,7 @@ The output is not particularly friendly.  Just pay attention to the penultimate 
 ```
 soybean.txt     Maxima: J =  7, rJ =  7, kJ =  7, J2 =  3, rJ2 =  1, kJ2 =  3, KL =  3, rKL =  3, kKL =  3
 ```
-where the K selections made for each method are given. The K-selection methods are defined in (the citation)[#cite].  The reported true K for this dataset is 4.
+where the K selections made for each method are given. The K-selection methods are defined in [the citation](#cite).  The reported true K for this dataset is 4.
 
 7. To use the Daneel method, you need the timing information for an initialization method without updates during the first iteration.
 ```
@@ -432,7 +432,7 @@ RUN_KMODES
 
 # How to Cite <a name = "cite" />
 
-- Dorman, K. S., & Maitra, R. (2021). An efficient k-modes algorithm for clustering categorical datasets. //Statistical Analysis and Data Mining: The ASA Data Science Journal//, sam.11546. (https://doi.org/10.1002/SAM.11546)[https://doi.org/10.1002/SAM.11546]
+- Dorman, K. S., & Maitra, R. (2021). An efficient k-modes algorithm for clustering categorical datasets. <i>Statistical Analysis and Data Mining: The ASA Data Science Journal</i>, sam.11546. [https://doi.org/10.1002/SAM.11546](https://doi.org/10.1002/SAM.11546).
 
 # Acknowledgements <a name = "acknowledgements" />
 
