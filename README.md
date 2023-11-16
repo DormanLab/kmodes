@@ -27,7 +27,7 @@ Skip to [Installation](#installation) to see how.
 - kmodes requires [cmake](https://cmake.org) (3.5.0 or higher version) and [gcc](https://gcc.gnu.org) (5.4.0 or higher version).
 - kmodes requires Rmath, the [R Standalone Math Library](https://cran.r-project.org/doc/manuals/r-release/R-admin.html#The-standalone-Rmath-library).  Often, the Rmath library (libRmath.a or libRmath.so for Linux or libRmath.dylib for MacOS) will be installed with R, but not always.  Here are some other locations for the library.
 	- r-mathlib on [Ubuntu](https://ubuntu.com/) and [Debian](https://www.debian.org/)
-	- libRmath on [Fedora](https://ubuntu.com/), [CentOS](https://centos.org/), [Mageia](https://www.mageia.org/en/), and [Mandriva](https://www.openmandriva.org/)
+	- libRmath on [Fedora](https://https://fedoraproject.org/), [CentOS](https://centos.org/), [Mageia](https://www.mageia.org/en/), and [Mandriva](https://www.openmandriva.org/)
 	- Or if all else fails, you can install the Rmath standalone library from the repository [https://github.com/statslabs/rmath](https://github.com/statslabs/rmath)
 
 # Installation <a name = "installation" />
@@ -139,7 +139,7 @@ The output is not particularly friendly.  Just pay attention to the penultimate 
 ```
 soybean.txt     Maxima: J =  7, rJ =  7, kJ =  7, J2 =  3, rJ2 =  1, kJ2 =  3, KL =  3, rKL =  3, kKL =  3
 ```
-where the K selections made for each method is given.  The reported true K for this dataset is 4.
+where the K selections made for each method are given. The K-selection methods are defined in (the citation)[#cite].  The reported true K for this dataset is 4.
 
 7. To use the Daneel method, you need the timing information for an initialization method without updates during the first iteration.
 ```
@@ -430,9 +430,9 @@ RUN_KMODES
 ```
 
 
-# How to Cite <a name = "citing" />
+# How to Cite <a name = "cite" />
 
-- This work is under review.  Please see [arxiv](url to be added).
+- Dorman, K. S., & Maitra, R. (2021). An efficient k-modes algorithm for clustering categorical datasets. //Statistical Analysis and Data Mining: The ASA Data Science Journal//, sam.11546. (https://doi.org/10.1002/SAM.11546)[https://doi.org/10.1002/SAM.11546]
 
 # Acknowledgements <a name = "acknowledgements" />
 
