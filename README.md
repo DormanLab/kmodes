@@ -1,7 +1,7 @@
 k-modes
 =======
 
-This software implements algorithms from [Huang (1997)](https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.6.4718), [Chaturvedi _et al._ (2001)](https://doi.org/10.1007/s00357-001-0004-3), and Dorman and Maitra (2020) to minimize the k-modes objective function.
+This software implements algorithms from [Huang (1997)](https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.6.4718), [Chaturvedi _et al._ (2001)](https://doi.org/10.1007/s00357-001-0004-3), and [Dorman and Maitra (2021)](https://onlinelibrary.wiley.com/doi/10.1002/sam.11546) to minimize the k-modes objective function.
 It also implements several initialization methods and K-selection methods.
 It has primarily been designed as a standalone executable, but you can now get some of the functionality by installing the R package.
 Skip to [Installation](#installation) to see how.
@@ -139,7 +139,7 @@ The output is not particularly friendly.  Just pay attention to the penultimate 
 ```
 soybean.txt     Maxima: J =  7, rJ =  7, kJ =  7, J2 =  3, rJ2 =  1, kJ2 =  3, KL =  3, rKL =  3, kKL =  3
 ```
-where the K selections made for each method are given. The K-selection methods are defined in [the citation](#cite).  The reported true K for this dataset is 4.
+where the K selections made for each method are given. The K-selection methods are defined in [Dorman and Maitra (2021)](#cite).  The reported true K for this dataset is 4.
 
 7. To use the Daneel method, you need the timing information for an initialization method without updates during the first iteration.
 ```
@@ -262,11 +262,13 @@ The meaning of each entry is provided below:
 
 # Troubleshooting <a name = "troubleshooting" />
 
-1. Please note that if you use ```run_kmodes``` to simulate data (```--simulate``` option), then it will output the true cluster identities in the first column.  It is very important that, when doing clustering, you use the ```--column 0``` option to inform ```run_kmodes``` so that it ***does not*** use this column of data for clustering.  Or remove the column before analysis.
+1. Please note that if you use ```run_kmodes``` to simulate data (```--simulate``` option), then it will output the true cluster identities in the first column.  It is very important that, when doing clustering with simulated data, you use the ```--column 0``` option to inform ```run_kmodes``` so that it ***does not*** use this column of data for clustering.  Or remove the column before analysis.
 
-2. ```run_kmodes``` is not very flexible about the data it can process.  It assumes that every category is a non-negative integer.
+2. If you did not simulate data with ```run_kmodes```, then please <i>do not</i> use the ```--column``` argument unless your file does contain the true cluster memberships.
 
-3. If the categories in your dataset are not contiguous numbers, ```run_kmodes``` will warn you.  You can ignore the warning, or use the second argument to option ```--file``` to modify the data file so the warning goes away.
+3. ```run_kmodes``` is not very flexible about the data it can process.  It assumes that every category is a non-negative integer.
+
+4. If the categories in your dataset are not contiguous numbers, ```run_kmodes``` will warn you.  You can ignore the warning, or use the second argument to option ```--file``` to modify the data file so the warning goes away.
 
 # Command-Line Options <a name = "options" />
 
