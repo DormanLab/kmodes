@@ -19,6 +19,7 @@ enum RETURN_SLOT {
 	AVERAGE_CRITERION_SLOT,
 	NUMBER_INITIALIZATIONS_SLOT,
 	BEST_RAND_SLOT,
+	MAX_RAND_SLOT,
 	AVERAGE_RAND_SLOT,
 	NUMBER_SLOTS,
 };
@@ -28,7 +29,7 @@ char const *slot_names[NUMBER_SLOTS] = {
 	"cluster.sizes", "partition",
 	"modes", "average.criterion",
 	"number.initializations",
-	"best.ari", "average.ari"
+	"best.ari", "max.ari", "average.ari"
 };
 
 int load_data(data *dat, options *opt, SEXP data_r, int *);
@@ -281,11 +282,15 @@ SEXP run_kmodes_r(	SEXP data_r,
 						ScalarInteger(dat->n_init));
 		if (opt->simulate || opt->true_cluster) {
 			SET_VECTOR_ELT(return_list, BEST_RAND_SLOT,
+						ScalarReal(dat->best_rand_at_opt));
+			SET_VECTOR_ELT(return_list, MAX_RAND_SLOT,
 						ScalarReal(dat->best_rand));
 			SET_VECTOR_ELT(return_list, AVERAGE_RAND_SLOT,
 						ScalarReal(dat->avg_ar));
 		} else {
 			SET_VECTOR_ELT(return_list, BEST_RAND_SLOT,
+							ScalarReal(NA_REAL));
+			SET_VECTOR_ELT(return_list, MAX_RAND_SLOT,
 							ScalarReal(NA_REAL));
 			SET_VECTOR_ELT(return_list, AVERAGE_RAND_SLOT,
 							ScalarReal(NA_REAL));
@@ -296,6 +301,8 @@ SEXP run_kmodes_r(	SEXP data_r,
 		SET_VECTOR_ELT(return_list, NUMBER_INITIALIZATIONS_SLOT,
 						ScalarInteger(NA_INTEGER));
 		SET_VECTOR_ELT(return_list, BEST_RAND_SLOT,
+							ScalarReal(NA_REAL));
+		SET_VECTOR_ELT(return_list, MAX_RAND_SLOT,
 							ScalarReal(NA_REAL));
 		SET_VECTOR_ELT(return_list, AVERAGE_RAND_SLOT,
 							ScalarReal(NA_REAL));

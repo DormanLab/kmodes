@@ -62,7 +62,9 @@
 #'	\item average.criterion - The average objective function achieved across
 #'	multiple initializations.
 #'	\item number.initializations - The number of initializations performed.
-#'	\item best.ari - If true clusters provided, then the best achieved ARI,
+#'	\item best.ari - If true clusters provided, then the achieved ARI, from
+#'	 the best solution, as measured by the objective function.
+#'	\item max.ari - If true clusters provided, then the maximum achieved ARI,
 #'	 perhaps not from the best solution, as measured by the objective function.
 #'	\item average.ari - If true clusters provided, then the average ARI achieved
 #'	across all initializations.
