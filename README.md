@@ -192,11 +192,14 @@ The following information are output in the first output file.  Most entries are
 	- `True cluster assignments:` The next line contains the true cluster assignments of each observation, same order as in the data file.
 	- `True cluster sizes:` The next line contains the true sizes of each cluster.
 - `Best optimized criterion:` An integer indicating the best value of the objective function obtained.  The next line contains the contribution of each cluster to the overall objective.  The values on the next line sum to the value on this line.
-- `Maximum AR:` If the `--column` argument was provided, then this line indicates the maximum achieved Adjusted RAND index.
-- `Best cluster sizes:` This line contains the sizes of the clusters in the best solution.  Notice, the clusters may not be ordered in the same way as the true clusters.
-- `Best solution originating seeds:` If random initialization was used, this line indicates the indices of the observations that yielded the best solution.
-- `Best solution cluster assignments:` The next line will contain the cluster assignments of all observations in the best-scoring solution.
-- `Best modes:`  The next K lines specify the modes of the clusters found for the best-scoring solution.
+- `Maximum AR:` If the `--column` argument was provided, then this line indicates the maximum achieved Adjusted RAND index, not necessarily achieved at optimum.
+- `Best AR:` If the `--column` argument was provided, then this line indicates the Adjusted RAND index achieved at optimum (minimum across tied optima).
+- `Best NMI:` If the `--column` argument was provided, then this line indicates the Normalized Mutual Information achieved at optimum (minimum across tied optima).
+- `Best NVI:` If the `--column` argument was provided, then this line indicates the Normalized Variation of Information achieved at optimum (maximum across tied optima).
+- `Best cluster sizes:` This line contains the sizes of the clusters in the best solution, first time observed across multiple initializations.  Notice, the clusters may not be ordered in the same way as the true clusters.
+- `Best solution originating seeds:` If random initialization was used, this line indicates the indices of the observations that yielded the best solution, first time observed across multiple initializations.
+- `Best solution cluster assignments:` The next line will contain the cluster assignments of all observations in the best-scoring solution, first time observed across multiple initializations.
+- `Best modes:`  The next K lines specify the modes of the clusters found for the best-scoring solution, first time observed across multiple initializations.
 - The last line is a concise summary of the run.  It contains 13 numbers, which are:
 	- The minimum value of the objective function obtained.
 	- The average number of initializations taken to converge.

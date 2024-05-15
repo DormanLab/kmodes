@@ -141,14 +141,19 @@ struct _data {
 	unsigned int iter;		/*<! iterations */
 
 	/* best solution */
-	double best_total;		/*<! total criterion */
-	double best_rand;		/*<! if simulated */
-	unsigned int *best_seed_idx;	/*<! seeding */
-	data_t **best_modes;		/*<! estimated modes */
-	double *best_criterion;		/*<! criterion */
-	unsigned int *best_cluster_id;	/*<! cluster assignments */
-	unsigned int *best_cluster_size;/*<! cluster sizes */
-	unsigned int *best_obsn_idx;	/*<! used if shuffling */
+	double best_total;		/*<! best total criterion */
+	double best_rand;		/*<! if true clusters known, not */
+					/*   necessarily at best objective */
+	double best_rand_at_opt;	/*<! rand at first optimum */
+	double best_mi_at_opt;		/*<! mi at first optimum */
+	double best_vi_at_opt;		/*<! vi at first optimum */
+	unsigned int best_total_cnt;	/*<! in case, same optimum repeated */
+	unsigned int *best_seed_idx;	/*<! seeding at optimum */
+	data_t **best_modes;		/*<! estimated modes at optimum */
+	double *best_criterion;		/*<! criterion at optimum */
+	unsigned int *best_cluster_id;	/*<! cluster assignments at optimum */
+	unsigned int *best_cluster_size;/*<! cluster sizes at optimum */
+	unsigned int *best_obsn_idx;	/*<! used if shuffling at optimum */
 
 	/* summary statistics */
 	double seconds;			/*<! seconds used */

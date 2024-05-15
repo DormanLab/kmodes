@@ -148,25 +148,26 @@ int run_kmodes(data *dat, options *opt)
 			} else {
 				perturb(dat, opt);
 			}
-	} else {
-	    if (opt->inner_perturb) { /* if use 2 settings perturbations */
-		if (i%(opt->inner_perturb + 1) == 0) {
-		    if((err = initialize(dat, opt)))
-			goto CLEAR_AND_EXIT;
+		} else {
+			if (opt->inner_perturb) { /* if use 2 settings perturbations */
+				if (i%(opt->inner_perturb + 1) == 0) {
+					if ((err = initialize(dat, opt)))
+						goto CLEAR_AND_EXIT;
+				} else if ((err = perturb_general(dat, opt))) {
+					goto CLEAR_AND_EXIT;
+				}
+			} else {
+				if (i && opt->n_perturb
+					&& (err = perturb_general(dat, opt)))
+					goto CLEAR_AND_EXIT;
+				if ((!i || !opt->n_perturb)
+					&& (err = initialize(dat, opt))) {
+					mmessage(ERROR_MSG, CUSTOM_ERROR,
+						"%s\n", kmodes_error(err));
+					goto CLEAR_AND_EXIT;
+				}
+			}
 		}
-		else if ((err = perturb_general(dat, opt))) {
-		    goto CLEAR_AND_EXIT;
-		}
-	    } else {
-		if (i && opt->n_perturb && (err = perturb_general(dat, opt)))
-		    goto CLEAR_AND_EXIT;
-		if ((!i || !opt->n_perturb) && (err = initialize(dat, opt))) {
-		    mmessage(ERROR_MSG, CUSTOM_ERROR, "%s\n",
-				    kmodes_error(err));
-		    goto CLEAR_AND_EXIT;
-		}
-	    }
-	}
 	
 		/* run one of k-modes algorithms */
 		if (opt->kmodes_algorithm == KMODES_HUANG) {
@@ -208,16 +209,14 @@ int run_kmodes(data *dat, options *opt)
 			if (err != KMODES_EXCEED_ITER_WARNING)
 				goto CLEAR_AND_EXIT;
 		}
-		/* counts function call time ... oh well */
+		if (!err || err == KMODES_EXCEED_ITER_WARNING) {
+			/* record state and stash best solution */
+			/* counts function call time ... oh well */
 #ifdef MATHLIB_STANDALONE
-		update_status(dat, opt, fps, fpi, i, &start);
+			update_status(dat, opt, fps, fpi, i, &start);
 #else
-		update_status(dat, opt, NULL, NULL, i, &start);
+			update_status(dat, opt, NULL, NULL, i, &start);
 #endif
-		/* record best solution */
-		if ((!err || err == KMODES_EXCEED_ITER_WARNING)
-			&& dat->total < dat->best_total) {
-			stash_state(dat, opt);
 		} else if (err) {
 			kmodes_eprintf("[ERROR] %s (%d)\n",
 							kmodes_error(err), err);
@@ -405,27 +404,27 @@ void stash_state(data *dat, options *opt)
 	for (unsigned int k = 0; k < opt->K; ++k)
 		if (dat->use_ini)
 			memcpy(dat->best_modes[k], dat->ini_seeds[k],
-				dat->n_coordinates * sizeof **dat->best_modes);
+				dat->n_coordinates * sizeof(**dat->best_modes));
 		else
 			memcpy(dat->best_modes[k], dat->seeds[k],
-				dat->n_coordinates * sizeof **dat->best_modes);
+				dat->n_coordinates * sizeof(**dat->best_modes));
 
 	if (dat->use_ini)
-		memcpy(dat->best_seed_idx, dat->ini_seed_idx, opt->K * sizeof
-			*dat->best_seed_idx);
+		memcpy(dat->best_seed_idx, dat->ini_seed_idx, opt->K
+			* sizeof(*dat->best_seed_idx));
 	else
-		memcpy(dat->best_seed_idx, dat->seed_idx, opt->K * sizeof
-			*dat->best_seed_idx);
+		memcpy(dat->best_seed_idx, dat->seed_idx, opt->K
+			* sizeof(*dat->best_seed_idx));
 
 	memcpy(dat->best_cluster_id, dat->cluster_id, dat->n_observations
-		* sizeof *dat->best_cluster_id);
+		* sizeof(*dat->best_cluster_id));
 	memcpy(dat->best_cluster_size, dat->cluster_size, opt->K
-		* sizeof *dat->best_cluster_size);
+		* sizeof(*dat->best_cluster_size));
 	memcpy(dat->best_criterion, dat->criterion, opt->K
-		* sizeof *dat->best_criterion);
+		* sizeof(*dat->best_criterion));
 	if (opt->shuffle)
 		memcpy(dat->best_obsn_idx, dat->obsn_idx, dat->n_observations
-			* sizeof *dat->obsn_idx);
+			* sizeof(*dat->obsn_idx));
 } /* stash_state */
 
 
@@ -544,7 +543,25 @@ int restore_state(data *dat, options *opt)
 			fseek(fp, -strlen(temp), SEEK_CUR);
 			if (fscanf(fp, "Maximum AR: %lf", &dat->best_rand) != 1)
 				return mmessage(ERROR_MSG, FILE_FORMAT_ERROR,
-					opt->soln_file);
+								opt->soln_file);
+		} else if (!strncmp(temp, "Best AR:", strlen("Best AR:"))) {
+			fseek(fp, -strlen(temp), SEEK_CUR);
+			if (fscanf(fp, "Best AR: %lf", &dat->best_rand_at_opt)
+									!= 1)
+				return mmessage(ERROR_MSG, FILE_FORMAT_ERROR,
+								opt->soln_file);
+		} else if (!strncmp(temp, "Best MI:", strlen("Best MI:"))) {
+			fseek(fp, -strlen(temp), SEEK_CUR);
+			if (fscanf(fp, "Best MI: %lf", &dat->best_mi_at_opt)
+									!= 1)
+				return mmessage(ERROR_MSG, FILE_FORMAT_ERROR,
+								opt->soln_file);
+		} else if (!strncmp(temp, "Best VI:", strlen("Best VI:"))) {
+			fseek(fp, -strlen(temp), SEEK_CUR);
+			if (fscanf(fp, "Best VI: %lf", &dat->best_vi_at_opt)
+									!= 1)
+				return mmessage(ERROR_MSG, FILE_FORMAT_ERROR,
+								opt->soln_file);
 		} else if (!strncmp(temp, "Time to better:",/* 15 */
 			strlen("Time to better:"))) {
 			fseek(fp, -strlen(temp), SEEK_CUR);
@@ -913,8 +930,27 @@ void update_status(data *dat, options *opt, FILE *fps, FILE *fpi,	   /**/
 		dat->ntimes++;
 	}
 
-	if ((opt->simulate || opt->true_cluster) && ar > dat->best_rand)
-		dat->best_rand = ar;
+	if (opt->simulate || opt->true_cluster) {
+		if (ar > dat->best_rand)
+			dat->best_rand = ar;
+
+		if (dat->total < dat->best_total) {
+			dat->best_rand_at_opt = ar;
+			dat->best_mi_at_opt = mi;
+			dat->best_vi_at_opt = vi;
+			dat->best_total_cnt = 1;	/* not used */
+
+		/* assess performance conservatively when optimum tied */
+		} else if (dat->total == dat->best_total) {
+			if (dat->best_rand_at_opt > ar)
+				dat->best_rand_at_opt = ar;
+			if (dat->best_mi_at_opt > mi)
+				dat->best_mi_at_opt = mi;
+			if (dat->best_vi_at_opt < vi)
+				dat->best_vi_at_opt = vi;
+			++dat->best_total_cnt;
+		}
+	}
 
 #ifdef MATHLIB_STANDALONE
 	write_status(dat, opt, fps, fpi, i, ar, mi, vi);
@@ -922,6 +958,9 @@ void update_status(data *dat, options *opt, FILE *fps, FILE *fpi,	   /**/
 
 	/* the rest is necessary bookkeeping */
 	dat->uncounted_seconds += ELAP_TIME(&stop);
+
+	if (dat->total < dat->best_total)
+		stash_state(dat, opt);
 
 #ifdef MATHLIB_STANDALONE
 	if (fpi || fps)
@@ -1371,8 +1410,8 @@ int parse_options(options *opt, int argc, const char **argv)
 			debug_msg(MINIMAL <= fxn_debug, opt->quiet,
 				"Simulation:\n\t%u observations\n\t%u "
 				"coordinates\n\t%u categories\n\t%f "
-				"between variance\n\t%f within "
-				"variance\n", opt->sim_n_observations,
+				"between time\n\t%f within "
+				"time\n", opt->sim_n_observations,
 				opt->sim_n_coordinates,
 				opt->sim_n_categories,
 				opt->sim_between_t, opt->sim_within_t);
@@ -1551,7 +1590,7 @@ int process_arg_p(int argc, char const **argv, int *i, int j, options *opt)
 				return(mmessage(ERROR_MSG, MEMORY_ALLOCATION,
 					"options::sim_alpha"));
 			memcpy(opt->sim_alpha, opt->sim_pi, opt->sim_K
-				* sizeof *opt->sim_pi);
+				* sizeof(*opt->sim_pi));
 			debug_msg(MINIMAL <= fxn_debug, opt->quiet,
 							"Simulation alpha:");
 			debug_call(MINIMAL <= fxn_debug, opt->quiet,
@@ -2214,6 +2253,10 @@ int fix_categories(data *dat, options *opt)
 /**
  * Simulate data using CTMC.
  *
+ * Times are measured in units of 1/C, where C is the number of
+ * categories, so we expect 2/C changes per site along a branch
+ * of length 2.
+ *
  * @param dat	pointer to data object (to fill)
  * @param opt	pointer to options object
  * @return	error status
@@ -2831,12 +2874,24 @@ void write_best_solution(data *dat, options *opt, FILE *fps)		/**/
 				printf("Maximum AR: %f\n", dat->best_rand);
 			if (fps)
 				fprintf(fps, "Maximum AR: %f\n", dat->best_rand);
-		}
-		if (dat->n_init > 1) {
+			if (dat->n_init > 1) {
+				if (opt->quiet >= QUIET)
+					printf("Average AR: %f\n", dat->avg_ar);
+				else
+					fprintf(fps, "Average AR: %f\n", dat->avg_ar);
+			}
 			if (opt->quiet >= QUIET)
-				printf("Average AR: %f\n", dat->avg_ar);
-			else
-				fprintf(fps, "Average AR: %f\n", dat->avg_ar);
+				printf("Best AR: %f\n", dat->best_rand_at_opt);
+			if (fps)
+				fprintf(fps, "Best AR: %f\n", dat->best_rand_at_opt);
+			if (opt->quiet >= QUIET)
+				printf("Best MI: %f\n", dat->best_mi_at_opt);
+			if (fps)
+				fprintf(fps, "Best MI: %f\n", dat->best_mi_at_opt);
+			if (opt->quiet >= QUIET)
+				printf("Best VI: %f\n", dat->best_vi_at_opt);
+			if (fps)
+				fprintf(fps, "Best VI: %f\n", dat->best_vi_at_opt);
 		}
 		if (opt->quiet >= QUIET && opt->K > 0) {
 			printf("Best cluster sizes:");
@@ -2955,9 +3010,9 @@ void write_best_solution(data *dat, options *opt, FILE *fps)		/**/
 		if (fps)
 			fprintf(fps, " %f", dat->seconds);
 		if (opt->quiet > ABSOLUTE_SILENCE)
-			printf(" %u\n", dat->n_init);
+			printf(" %u", dat->n_init);
 		if (fps)
-			fprintf(fps, " %u\n", dat->n_init);
+			fprintf(fps, " %u", dat->n_init);
 	}
 } /* write_best_solution */
 
