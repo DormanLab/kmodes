@@ -113,7 +113,7 @@ add_compile_options(-D_POSIX_C_SOURCE=200112L -D_XOPEN_SOURCE=500)
 add_executable(run_kmodes ${SRCS})
 
 # Rmath
-find_library(RMATH_LIBRARY NAMES Rmath  HINTS ${LIBR_LIB_DIR} ${_LIBR_EXECUTABLE_DIR}/lib ${_LIBR_EXECUTABLE_DIR}/lib64)
+find_library(RMATH_LIBRARY NAMES Rmath  HINTS ${LIBR_LIB_DIR} ${_LIBR_EXECUTABLE_DIR}/lib ${_LIBR_EXECUTABLE_DIR}/lib64 .)
 find_package_handle_standard_args(LibRmath DEFAULT_MSG RMATH_LIBRARY)
 if(RMATH_LIBRARY)
    target_link_libraries(run_kmodes ${RMATH_LIBRARY})
