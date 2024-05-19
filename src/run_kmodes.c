@@ -1530,6 +1530,11 @@ int parse_options(options *opt, int argc, const char **argv)
 		if (opt->n_init)
 			mmessage(WARNING_MSG, NO_ERROR, "Setting number of "
 				"clusters to estimate to K=%u\n", opt->K);
+	} else if (!opt->K && opt->simulate) {
+		opt->K = opt->sim_K = 2;
+		if (opt->n_init)
+			mmessage(WARNING_MSG, NO_ERROR, "Setting number of "
+				"clusters to estimate to K=%u\n", opt->K);
 	}
 
 	if (!opt->datafile) {
@@ -1572,9 +1577,9 @@ int process_arg_p(int argc, char const **argv, int *i, int j, options *opt)
 			++(*i);
 		}
 		if (opt->sim_K && (opt->sim_K != read_cmdline_doubles(argc,
-			argv, *i + 1, &opt->sim_pi, (void *)opt) || errno))
+			argv, *i + 1, &opt->sim_pi, (void *)opt) || errno)) {
 			return INVALID_CMD_OPTION;
-		else {
+		} else {
 			opt->sim_K = read_cmdline_doubles(argc, argv,
 				*i + 1, &opt->sim_pi, (void *)opt);
 			if (errno)
@@ -2277,6 +2282,17 @@ int simulate_data(data *dat, options *opt)
 	dat->n_observations = opt->sim_n_observations;
 	dat->n_coordinates = opt->sim_n_coordinates;
 
+	/* default is equal-sized clusters */
+	if (!opt->sim_pi && !opt->sim_alpha) {
+		opt->sim_pi = malloc(opt->sim_K * sizeof(*opt->sim_pi));
+		if (!opt->sim_pi) {
+			err = MEMORY_ALLOCATION;
+			goto ABORT_SIMULATE_DATA;
+		}
+		for (unsigned int i = 0; i < opt->sim_K; ++i)
+			opt->sim_pi[i] = 1.0 / opt->sim_K;
+	}
+
 	/* allocate simulated modes and data */
 	data_t *tmp = malloc(opt->sim_K * dat->n_coordinates
 						* sizeof(**opt->sim_modes));
@@ -2476,6 +2492,12 @@ int simulate_data(data *dat, options *opt)
 			opt->true_K, true_k);
 		goto ABORT_SIMULATE_DATA;
 	}
+
+	if ((err = allocate_data(dat, 0)))
+		goto ABORT_SIMULATE_DATA;
+
+	for (unsigned int j = 0; j < dat->n_coordinates; ++j)
+		dat->n_categories[j] = opt->sim_n_categories;
 
 	FILE *fp = NULL;
 	if (opt->datafile) {
@@ -2932,6 +2954,7 @@ void write_best_solution(data *dat, options *opt, FILE *fps)		/**/
 		}
 		if (opt->quiet >= QUIET)
 			printf("Best modes:\n");
+
 		for (unsigned int k = 0; k < opt->K; ++k) {
 			for (unsigned int j = 0; j < dat->n_coordinates; ++j)
 				if (opt->quiet >= QUIET)
