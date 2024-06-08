@@ -51,13 +51,13 @@ static double entropy(data_t *x, int unique_c, int n)
 		hist[i] = 0;
 	for (int i = 0; i < n; ++i)
 		hist[x[i]]++;
-	
+
 	for (int i = 0; i < unique_c; ++i) {
 		if (hist[i] == 0)
 			continue;
 		entro -= hist[i] * (log2(hist[i]) - log2(n)) / n;
 	}
-	
+
 	return entro;
 } /* entropy */
 
@@ -115,7 +115,7 @@ static int mask_idx(double *s_entropy, unsigned int p, double percentage, size_t
 //	size_t *pos = NULL;
 	UNUSED(percentage);
 //	*indices = malloc(sizeof(size_t) * p);
-	
+
 	*indices = qorder_double(s_entropy, p); // get the order of entr
 
 	/*
@@ -161,7 +161,7 @@ unsigned int binary_search(data_t **x, data *dat, size_t *indices,
 		for (j = l; j < mid; ++j)
 			for (i = 0; i < n; ++i)
 				x[i][indices[j]] = 0;
-		
+
 		/* build hash table */
 		dat->hash_length = 0;
 		dat->seq_count = NULL;	/* [KSD,BUG] was memory leak */
@@ -213,7 +213,7 @@ int mask_nhash(data *dat, options *opt)
 	int abunk = opt->abunk;
 	unsigned int p = dat->n_coordinates, n = dat->n_observations;
 	unsigned int i, m;
-	
+
 	if ((err = entropy_per_coordinate(dat)))
 		return err;
 
@@ -231,7 +231,7 @@ int mask_nhash(data *dat, options *opt)
 	if (!dat->masked_dmat[0])
 		return mmessage(ERROR_MSG, MEMORY_ALLOCATION,
 						"data::masked_dmat[0]");
-	
+
 	memcpy(dat->masked_dmat[0], dat->data, n * p * sizeof(*dat->data));
 	for (i = 1; i < n; ++i)
 		dat->masked_dmat[i] = dat->masked_dmat[0] + i * p;
@@ -296,7 +296,7 @@ int mask_nhash(data *dat, options *opt)
 		fprintf(stderr, "]: %u\n", s->count);
 #endif
 	}
-	
+
 	dat->mask = calloc(dat->n_coordinates, sizeof(*dat->mask));
 
 	if (!dat->mask)
@@ -410,7 +410,7 @@ initialize_by_abundance(
 
 	if ((err = randomize_masked_hash(dat)))
 		return err;
-	
+
 	sort_by_count(&dat->seq_count);
 	sc = dat->seq_count;
 
@@ -418,7 +418,7 @@ initialize_by_abundance(
 
 		/* consider next most abundant seed */
 		//unsigned int s = sc->idx;
-	   
+
 		/* count ties */
 		snext = sc->hh.next;
 		if (!snext)
@@ -532,7 +532,7 @@ initialize_by_abundance(
 		for (l = 0; sc != NULL && l < nties; ++l)
 			sc = sc->hh.next;
 	}
-	
+
 	return err;
 } /* initialize_by_abundance */
 
@@ -592,7 +592,7 @@ initialize_proportional_to_abundance(
 				repeat = 1;
 				break;
 			}
-		
+
 //		s = dat->cluster_id[s];
 //		memcpy(seeds[k], dat->seeds[s], p * sizeof(**seeds));
 //		sd_idx[k] = s;
@@ -644,14 +644,14 @@ perturb_by_hd(
 	/* compute hamming distance of each cluster */
 	for (k = 0; k < K; ++k)
 		hdis[k] = 0;
-	
+
 	// if ALGORITHM FOUND A NULL CLUSTER
 	int count = 0;
 	for (k = 0; k < K; ++k)
 		for (int j = 0; j < dat->n_coordinates; ++j)
 			if (dat->best_modes[k][j] == 0)
 				count++;
-	
+
 	for (unsigned int i = 0; i < n; ++i)
 		if (count == K * dat->n_coordinates) {
 			mmessage(WARNING_MSG, INTERNAL_ERROR, "null cluster?");
@@ -660,7 +660,7 @@ perturb_by_hd(
 		} else
 			hdis[dat->best_cluster_id[i]] += hd(dat->dmat[i],
 				dat->best_modes[dat->best_cluster_id[i]], p);
-	
+
 	int null_cl = -1;
 	/* choose seed to resample */
 	for (k = 0; k < K; ++k) {
@@ -673,12 +673,12 @@ perturb_by_hd(
 			memcpy(seeds[k], dat->best_modes[k], p * sizeof(**seeds));
 			hdis[k] /= dat->best_cluster_size[k];
 		}
-		
+
 		dsum += hdis[k];
 		nseeds[k] = seeds[k];
 		nsd_idx[k] = sd_idx[k];
 	}
-	
+
 	double r = unif_rand() * dsum;
 
 	for (k = 0, dsum = 0; k < K && r > dsum; dsum += hdis[k++]);
@@ -686,7 +686,7 @@ perturb_by_hd(
 		k--;
 	if (null_cl != -1)
 		k = null_cl;
-	
+
 	if (k != K - 1) {
 		nseeds[K-1] = seeds[k];
 		nseeds[k] = seeds[K-1];	/* we'll keep this one */
@@ -713,7 +713,7 @@ perturb_by_hd(
 		memcpy(seeds[K-1], save_seed, p*sizeof(*save_seed));
 		sd_idx[K-1] = save_sd_idx;
 	}
-   
+
 	free(nseeds);
 	free(nsd_idx);
 	free(save_seed);
@@ -754,11 +754,11 @@ perturb_methods(
 
 	if (!nseeds || !nsd_idx || !save_seed)
 		return mmessage(ERROR_MSG, MEMORY_ALLOCATION, "nseeds");
-	
+
 	if (opt->perturb_selection == KMODES_PERTURB_HD) {
 		k = select_by_hd (dat, seeds, nseeds, nsd_idx, sd_idx, K);
 	}
-	
+
 	if (k != K - 1) {
 		nseeds[K-1] = seeds[k];
 		nseeds[k] = seeds[K-1];	/* we'll keep this one */
@@ -800,7 +800,7 @@ perturb_methods(
 		memcpy(seeds[K-1], save_seed, p*sizeof(*save_seed));
 		sd_idx[K-1] = save_sd_idx;
 	}
-   
+
 	free(nseeds);
 	free(nsd_idx);
 	free(save_seed);
@@ -817,27 +817,28 @@ int select_by_hd(data *dat, data_t **seeds,
 	unsigned int p = dat->n_coordinates;
 	double hdis[K], dsum = 0;
 	unsigned int k = 0;
-	
+
 	/* compute hamming distance of each cluster */
 	for (k = 0; k < K; ++k)
 		hdis[k] = 0;
-	
+
 	// if algorithm gets a NULL cluster
 	int count = 0;
 	for (k = 0; k < K; ++k)
 		for (int j = 0; j < dat->n_coordinates; ++j)
 			if (dat->best_modes[k][j] == 0)
 				count++;
-	
+
 	for (unsigned int i = 0; i < n; ++i)
 		if (count == K * dat->n_coordinates) {
-			mmessage(WARNING_MSG, INTERNAL_ERROR, "null cluster?");
+			mmessage(WARNING_MSG, INTERNAL_ERROR, "null cluster?\n");
 			hdis[dat->cluster_id[i]] += hd(dat->dmat[i],
 					dat->seeds[dat->cluster_id[i]], p);
-		} else
+		} else {
 			hdis[dat->best_cluster_id[i]] += hd(dat->dmat[i],
 				dat->best_modes[dat->best_cluster_id[i]], p);
-	
+		}
+
 	int null_cl = -1;
 	/* choose seed to resample */
 	for (k = 0; k < K; ++k) {
@@ -850,12 +851,12 @@ int select_by_hd(data *dat, data_t **seeds,
 			memcpy(seeds[k], dat->best_modes[k], p * sizeof(**seeds));
 			hdis[k] /= dat->best_cluster_size[k];
 		}
-		
+
 		dsum += hdis[k];
 		nseeds[k] = seeds[k];
 		nsd_idx[k] = sd_idx[k];
 	}
-	
+
 	double r = unif_rand() * dsum;
 
 	for (k = 0, dsum = 0; k < K && r > dsum; dsum += hdis[k++]);
@@ -863,7 +864,7 @@ int select_by_hd(data *dat, data_t **seeds,
 		k--;
 	if (null_cl != -1)
 		k = null_cl;
-	
+
 	return k;
 } /* select_by_hd */
 
@@ -877,15 +878,15 @@ void replace_by_random(	data *dat,
 	unsigned int p = dat->n_coordinates;
 	unsigned int n = dat->n_observations;
 	int repeat = 0;
-	
+
 	for (unsigned int k = k1; k < K; ++k) {
 		if (repeat)
 			--k;
 		repeat = 0;
-		
+
 		size_t s = (size_t) (unif_rand() * n);
 		// get the center of obs with the chosen masked obs
-	   
+
 		sd_idx[k] = s;
 
 		for (unsigned int l = 0; l < k1; ++l)
