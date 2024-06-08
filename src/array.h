@@ -161,7 +161,7 @@
 } while (0)
 
 #define FREE_1ARRAY(a)  do {                                                 \
-    free(a);                                                                 \
+    if (a) free(a);                                                          \
     a = NULL;                                                                \
 } while (0)
 
