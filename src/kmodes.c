@@ -20,6 +20,7 @@
  * identical to kmns.c except for indx which is a number here.
  * Further adjusted by K. Dorman, Ames, IA, 9/12.
  * Adapted to kmodes.c by K. Dorman, Ames, IA, 6/17.
+ * Adapted for missing data by K. Dorman, Ames, IA 5/24.
  */
 
 #include <string.h>
@@ -81,12 +82,14 @@ int compare_data_to_seed(data_t **x, unsigned int i, data_t *seed, unsigned int 
 #ifdef __KMODES_DEBUGGING__
 
 /* debugging functions */
+void kmodes_print_modes_debug(data_t **modes, unsigned int K, unsigned int p);
 int allocate_nkjc_debug(unsigned int K, unsigned int p, size_t ncat);
 double debug_cost_to_move(data_t **x, unsigned int n, unsigned int p, unsigned int K, unsigned int *ic, unsigned int i, unsigned int l1, unsigned int l2, int wgt);
 static inline double compute_cost_from_nkjc(size_t ***nkjc, unsigned int K, unsigned int p, int wgt);
 void compare_nkjc(size_t ***nkjc1, size_t ***nkjc2, unsigned int K, unsigned int p);
 void compute_and_compare_modes(size_t ***nkjc, data_t **modes, data_t **mmodes, unsigned int K, unsigned int p);
 void summarize_clusters(char const *str, size_t ***nkjc, data_t **c, data_t **c2, unsigned int K, unsigned int p);
+void summarize_cluster(char const *str, size_t ***nkjc, data_t **c, data_t **c2, unsigned int k, unsigned int p);
 
 static size_t ***__nkjc_debug = NULL;
 #endif
@@ -165,15 +168,19 @@ kmodes_hw(data_t **x, unsigned int n, unsigned int p, data_t **c,
 		/* compute centers [PARALLEL] */
 		for (j = 0; j < p; j++) {
 			unsigned int max = 0;
-			for (l = 0; l < __nj[j]; l++) {
+
+			for (l = 0; l < __nj[j]; l++)
 				__njc[j][l] = 0;
-				for (i = 0; i < n; i++)
+			for (i = 0; i < n; i++)
+				if (x[i][j] != KMODES_MISSING)
 					__njc[j][(int) x[i][j]]++;
+
+			c[0][j] = KMODES_MISSING;
+			for (l = 0; l < __nj[j]; l++)
 				if (max < __njc[j][l]) {
 					max = __njc[j][l];
 					c[0][j] = l;
 				}
-			}
 		}
 		/* compute sum-of-distances [PARALLEL] */
 		csd[0] = 0;
@@ -184,7 +191,7 @@ kmodes_hw(data_t **x, unsigned int n, unsigned int p, data_t **c,
 	} else if (K == n) {
 		for (i = 0; i < n; i++) {
 			nc[i] = 1;	/* 1 member per cluster */
-			memcpy(c[i], x[i], p * sizeof **c);
+			memcpy(c[i], x[i], p * sizeof(**c));
 			ic1[i] = i;
 			csd[i] = 0;
 		}
@@ -205,8 +212,10 @@ kmodes_hw(data_t **x, unsigned int n, unsigned int p, data_t **c,
 		nc[k] = 0;	/* initialize counts per cluster */
 
 		/* initialize minor mode to be NOT initial modes */
-		for (j = 0; j < p; j++)
-			__c2[k][j] = c[k][j] == 0 ? 1 : 0;
+		for (j = 0; j < p; j++) {
+			__c2[k][j] = KMODES_MISSING;
+			__c2[k][j] = __nj[j] > 1 && c[k][j] == 0 ? 1 : 0;
+		}
 	}
 
 	/* space for counts of categories per cluster per site */
@@ -223,6 +232,13 @@ kmodes_hw(data_t **x, unsigned int n, unsigned int p, data_t **c,
 	/* assign observations to clusters and find two closest centres,
 	 * ic1[i] and ic2[i] [PARALLEL] */
 	for (i = 0; i < n; i++) {
+
+		/*
+		if (!((i+1) % 10))
+			fprintf(stderr, "-");
+		if (!((i+1) % 200))
+			fprintf(stderr, " %u/%u\n", i, n);
+		*/
 
 		/* initially guess first and second center */
 		ic1[i] = 0;
@@ -284,20 +300,31 @@ kmodes_hw(data_t **x, unsigned int n, unsigned int p, data_t **c,
 
 		nc[ic1[i]]++;
 		for (j = 0; j < p; j++)
-			__nkjc[ic1[i]][j][(int) x[i][j]]++;
+			if (x[i][j] != KMODES_MISSING)
+				__nkjc[ic1[i]][j][(int) x[i][j]]++;
 
 		/* update modes (should be default behavior) */
 		if (opt->init_update)
 			for (j = 0; j < p; ++j) {
-				if (__nkjc[ic1[i]][j][(int) x[i][j]]
+				if (c[ic1[i]][j] == KMODES_MISSING
+					&& x[i][j] != KMODES_MISSING)
+					c[ic1[i]][j] = x[i][j];
+				else if (x[i][j] != KMODES_MISSING
+					&& __nkjc[ic1[i]][j][(int) x[i][j]]
 					> __nkjc[ic1[i]][j][(int) c[ic1[i]][j]])
 					c[ic1[i]][j] = x[i][j];
-				else if (__nkjc[ic1[i]][j][(int) x[i][j]]
+				else if (x[i][j] != KMODES_MISSING
+					&& __nkjc[ic1[i]][j][(int) x[i][j]]
 					== __nkjc[ic1[i]][j][(int) c[ic1[i]][j]]
 					&& x[i][j] < c[ic1[i]][j])
 					c[ic1[i]][j] = x[i][j];
 			}
+#ifdef __KMODES_DEBUGGING__
+		kmodes_print_modes_debug(c, K, p);
+		kmodes_print_modes_debug(__c2, K, p);
+#endif
 	} /* find closest centers */
+	//fprintf(stderr, " %u/%u\n", n, n);
 
 	/* initialize pre-computed values needed by algorithm */
 	for (k = 0; k < K; ++k) {
@@ -386,18 +413,18 @@ int allocate_hw_memory(unsigned int n, unsigned int p, unsigned int K)
 {
 	/* allocate second best information */
 #ifndef __KMODES_NO_QTRANS__
-	__ic2 = malloc(n * sizeof *__ic2);
+	__ic2 = malloc(n * sizeof(*__ic2));
 	if (!__ic2)
 		return KMODES_MEMORY_ERROR;
 #endif
-	__c2 = malloc(K * sizeof *__c2);
+	__c2 = malloc(K * sizeof(*__c2));
 	/* allocate memory for minimum distance, live and cost sets */
-	__dis = malloc(n * sizeof *__dis);
-	__live = malloc(K * sizeof *__live);
-	__cd = malloc(K * sizeof *__cd);
+	__dis = malloc(n * sizeof(*__dis));
+	__live = malloc(K * sizeof(*__live));
+	__cd = malloc(K * sizeof(*__cd));
 
 	/* allocate c2 memory as a single block */
-	data_t *tmp = malloc(K * p * sizeof **__c2);
+	data_t *tmp = malloc(K * p * sizeof(**__c2));
 
 	if (!__c2 || !tmp || !__dis || !__live || !__cd)
 		return KMODES_MEMORY_ERROR;
@@ -461,6 +488,14 @@ void optra(data_t **a, unsigned int m, unsigned int n, data_t **c, unsigned int 
 
 	/* one loop through all observations */
 	for (i = 0, i1=1; i < m; ++i, ++i1) {
+
+/*
+		if (!((i+1) % 10))
+			fprintf(stderr, ".");
+		if (!((i+1) % 200))
+			fprintf(stderr, " %u/%u\n", i, m);
+ */
+
 		(*indx)++;	/* one more observation to be processed */
 		l1 = ic1[i];	/* current closest center */
 
@@ -619,6 +654,7 @@ void optra(data_t **a, unsigned int m, unsigned int n, data_t **c, unsigned int 
 		if (*indx == m)
 			return;
 	}
+	//fprintf(stderr, " %u/%u\n", m, m);
 
 	/* there was >= 1 transfer; adjust last obs. transferred
 	 * to/from l */
@@ -747,6 +783,11 @@ void qtran(data_t **a, unsigned int m, unsigned int n, data_t **c, unsigned int 
 				live[l1] = istep + m;
 				live[l2] = istep + m;
 
+#ifdef __KMODES_DEBUGGING__
+				debug_msg(1, 0, "Moving member %zu from %u to "
+							"%u\n", i, l1, l2);
+#endif
+
 				/* update cluster counts & assignments */
 				nc[l1]--;
 				nc[l2]++;
@@ -808,24 +849,27 @@ static inline double cost_to_join(size_t **nkt, data_t *a, data_t *c, unsigned i
 	double de = 0.;
 
 	for (unsigned int j = 0; j < p; ++j) {
+		if (a[j] == KMODES_MISSING)
+			continue;
 
 		/* mode unchanged: add character less frequent than mode (0) */
-		if (nkt[j][(int) c[j]] > nkt[j][(int) a[j]] + 1) {
+		if (c[j] != KMODES_MISSING
+				&& nkt[j][(int) c[j]] >= nkt[j][(int) a[j]] + 1)
 			de += 1.;
 
 		/* mode unchanged unless add hi rank:
 		 *	unchanged: it costs to add new member (3)
 		 *	  changed: it costs to keep old mode (4)
 		 */
-		} else if (nkt[j][(int) c[j]] == nkt[j][(int) a[j]] + 1) {
+//		} else if (nkt[j][(int) c[j]] == nkt[j][(int) a[j]] + 1) {
 // [TODO] almost certainly superfluous?			&& c[j] != a[j])
 /*
 			if (c[j] == a[j])
 				exit(mmessage(ERROR_MSG, INTERNAL_ERROR,
 						"should not be possible!"));
  */
-			de += 1.;
-		}
+//			de += 1.;
+//		}
 
 		/* higher cost than some previously known cost: abort */
 		if (de > bcost)
@@ -849,6 +893,9 @@ static inline double weighted_cost_to_join(size_t **nkt, data_t *a, data_t *c,
 #endif
 
 	for (unsigned int j = 0; j < p; ++j) {
+		if (a[j] == KMODES_MISSING)
+			continue;
+
 		if (fxn_debug) {
 			debug_msg(fxn_debug, 0, "%zu (%u):", j, a[j]);
 			for (unsigned int l = 0; l < __nj[j]; ++l)
@@ -857,14 +904,16 @@ static inline double weighted_cost_to_join(size_t **nkt, data_t *a, data_t *c,
 		}
 
 		/* mode unchanged: add character less frequent than mode (5) */
-		if (nkt[j][(int) c[j]] > nkt[j][(int) a[j]] + 1) {
+		if (c[j] != KMODES_MISSING
+			&& nkt[j][(int) c[j]] > nkt[j][(int) a[j]] + 1) {
 			de += (double) (nt[j][(int) c[j]] + nt[j][(int) a[j]])
 				/ (nt[j][(int) c[j]] * nt[j][(int) a[j]]);
 			debug_msg(QUIET <= fxn_debug, fxn_debug, "[1] %.0f\n",
 									de);
 
 		/* (w/ weights): add char that breaks tie (3-4) */
-		} else if (nkt[j][(int) c[j]] == nkt[j][(int) a[j]] + 1) {
+		} else if (c[j] != KMODES_MISSING
+			&& nkt[j][(int) c[j]] == nkt[j][(int) a[j]] + 1) {
 			/* add lo rank character that tie mode (3) */
 			if (c[j] < a[j]) {
 				de += (double) (nt[j][(int) c[j]] + nt[j][(int) a[j]])
@@ -893,7 +942,8 @@ static inline double weighted_cost_to_join(size_t **nkt, data_t *a, data_t *c,
 			}
 
 		/* (w/ weights): add low rank char that breaks tie (2) */
-		} else if (nkt[j][(int) c[j]] == nkt[j][(int) a[j]]
+		} else if (c[j] != KMODES_MISSING
+			&& nkt[j][(int) c[j]] == nkt[j][(int) a[j]]
 			&& c[j] < a[j]) {
 			for (unsigned int l = 0; l < __nj[j]; ++l)
 				if (l == (unsigned int) c[j])	/* previous mode */
@@ -936,17 +986,23 @@ static inline double cost_of_membership(size_t **nkt, data_t *a, data_t *c,
 {
 	double de = 0.;
 	for (unsigned int j = 0; j < p; ++j) {
+		/* no observations at this coordinate */
+		if (a[j] == KMODES_MISSING)
+			continue;
+
+		/* mode is not missing since a[j] in cluster */
 
 		/* removing non-modal character in ith observation */
 		if (a[j] != c[j])
 			de += 1.;
 
-		/* removing modal character and departure will change mode
-		 * third condition required for sites with one category
-		 */
-		else if (a[j] == c[j] && nkt[j][(int) c[j]]
-			== nkt[j][(int) c2[j]] && c[j] < c2[j])
+		/* removing modal character and departure will change mode */
+		else if (a[j] == c[j] && c2[j] != KMODES_MISSING
+			&& nkt[j][(int) c[j]] == nkt[j][(int) c2[j]]
+							&& c[j] < c2[j])
 			de += 1.;
+
+		/* if minor mode is missing; there is no cost at this site */
 	}
 	return de;
 } /* cost_of_membership */
@@ -970,6 +1026,9 @@ static inline double weighted_cost_of_membership(size_t **nkt, data_t *a,
 {
 	double de = 0.;
 	for (unsigned int j = 0; j < p; ++j) {
+		if (a[j] == KMODES_MISSING)
+			continue;
+
 		if (fxn_debug) {
 			debug_msg(QUIET >= fxn_debug, 0, "%u (%u):", j, a[j]);
 			for (unsigned int l = 0; l < __nj[j]; ++l)
@@ -985,8 +1044,9 @@ static inline double weighted_cost_of_membership(size_t **nkt, data_t *a,
 				"non-mode %u (%.0f)\n", a[j], de);
 
 		/* removing modal character and departure will change mode */
-		} else if (a[j] == c[j] && nkt[j][(int) c[j]]
-			== nkt[j][(int) c2[j]] && c[j] < c2[j]) {
+		} else if (a[j] == c[j] && c2[j] != KMODES_MISSING
+				&& nkt[j][(int) c[j]] == nkt[j][(int) c2[j]]
+							&& c[j] < c2[j]) {
 			de += (double) (nt[j][(int) c[j]] + nt[j][(int) c2[j]])
 				/ (nt[j][(int) c[j]] * nt[j][(int) c2[j]]);
 			debug_msg(QUIET >= fxn_debug, fxn_debug, "remove mode "
@@ -1018,7 +1078,7 @@ double compute_criterion(data_t **x, data_t **seeds, unsigned int *ic,
 
 	if (!criterion) {
 		if (!__criterion) {
-			__criterion = malloc(K * sizeof *__criterion);
+			__criterion = malloc(K * sizeof(*__criterion));
 #ifdef __KMODES_DEBUGGING__
 			if (!__criterion)
 				exit(mmessage(ERROR_MSG, MEMORY_ALLOCATION,
@@ -1072,6 +1132,9 @@ static inline double compute_cost(size_t ***nkjc, double *cost, data_t **c,
 	for (unsigned int k = 0; k < K; ++k) {
 		for (unsigned int j = 0; j < p; ++j) {
 
+			if (c[k][j] == KMODES_MISSING)
+				continue;
+
 			for (unsigned int l = 0; l < c[k][j]; ++l)
 				cost[k] += nkjc[k][j][l];
 			for (unsigned int l = c[k][j] + 1; l < __nj[j]; ++l)
@@ -1107,6 +1170,9 @@ static inline double compute_weighted_cost(size_t ***nkjc, double *cost,
 
 	for (unsigned int k = 0; k < K; ++k) {
 		for (unsigned int j = 0; j < p; ++j) {
+
+			if (c[k][j] == KMODES_MISSING)
+				continue;
 
 			for (unsigned int l = 0; l < c[k][j]; ++l)
 				cost[k] += nkjc[k][j][l] * ((double)
@@ -1167,6 +1233,21 @@ static inline void update_modes(size_t ***nkt, data_t *a, data_t **c, data_t **c
 
 	/* update centers [PARALLEL] */
 	for (unsigned int j = 0; j < p; j++) {
+
+		/* observation has no information */
+		if (a[j] == KMODES_MISSING)
+			continue;
+
+/*
+fprintf(stderr, "cluster=%u, j=%u:", l1, j);
+for (l=0; l < nj[j]; ++l)
+fprintf(stderr, " %u", nkt[l1][j][l]);
+fprintf(stderr, ": c=%u, c2=%u\n", c[l1][j], c2[l1][j]);
+fprintf(stderr, "cluster=%u, j=%u:", l2, j);
+for (l=0; l < nj[j]; ++l)
+fprintf(stderr, " %u", nkt[l2][j][l]);
+fprintf(stderr, ": c=%u, c2=%u\nMoving a=%u\n", c[l2][j], c2[l2][j], a[j]);
+ */
 		/* update category counts */
 		nkt[l1][j][(int) a[j]]--;
 		nkt[l2][j][(int) a[j]]++;
@@ -1175,8 +1256,9 @@ static inline void update_modes(size_t ***nkt, data_t *a, data_t **c, data_t **c
 
 		/* cluster source */
 		/* new mode if mode demoted to equal minor mode of lower rank */
-		if (a[j] == c[l1][j] && nkt[l1][j][(int) c[l1][j]] ==
-			nkt[l1][j][(int) c2[l1][j]] && c2[l1][j] < c[l1][j]) {
+		if (a[j] == c[l1][j] && c2[l1][j] != KMODES_MISSING &&
+			nkt[l1][j][(int) c[l1][j]] == nkt[l1][j][(int) c2[l1][j]]
+						&& c2[l1][j] < c[l1][j]) {
 			ll = c[l1][j];
 			c[l1][j] = c2[l1][j];
 
@@ -1187,14 +1269,18 @@ static inline void update_modes(size_t ***nkt, data_t *a, data_t **c, data_t **c
 					c2[l1][j] = l;
 					break;
 				}
-		/* new mode if mode demoted below minor mode */
-		} else if (a[j] == c[l1][j] && nkt[l1][j][(int) c[l1][j]]
-			== nkt[l1][j][(int) c2[l1][j]] - 1) {
+		/* new mode if mode demoted below minor mode
+		 * minor mode must have cnt >1 or contradiction
+		 */
+		} else if (a[j] == c[l1][j] && c2[l1][j] != KMODES_MISSING
+			&& nkt[l1][j][(int) c[l1][j]]
+					== nkt[l1][j][(int) c2[l1][j]] - 1) {
 			ll = c[l1][j];
 			c[l1][j] = c2[l1][j];
 
 			/* look for minor mode
-			 * with same frequency as last minor mode */
+			 * with same frequency as last minor mode
+			 */
 			for (l = c2[l1][j] + 1; l < nj[j]; ++l)
 				if (nkt[l1][j][l]
 					== nkt[l1][j][(int) c2[l1][j]]) {
@@ -1204,52 +1290,90 @@ static inline void update_modes(size_t ***nkt, data_t *a, data_t **c, data_t **c
 
 			/* or a lower rank minor mode w/ same frequency as a[j] */
 			if (l == nj[j]) {
-				c2[l1][j] = ll;
-				for (l = 0; l < ll; ++l)
-					if (nkt[l1][j][l] == nkt[l1][j][ll]) {
-						c2[l1][j] = l;
-						break;
-					}
+				if (!nkt[l1][j][ll]) {
+					c2[l1][j] = KMODES_MISSING;
+				} else {
+					c2[l1][j] = ll;
+					for (l = 0; l < ll; ++l)
+						if (nkt[l1][j][l] == nkt[l1][j][ll]) {
+							c2[l1][j] = l;
+							break;
+						}
+				}
 			}
+
+		/* new mode is missing */
+		} else if (a[j] == c[l1][j] && c2[l1][j] == KMODES_MISSING
+						&& !nkt[l1][j][(int) a[j]]) {
+			c[l1][j] = KMODES_MISSING;
 
 		/* new 2nd mode if 2nd mode demoted below a 3rd mode */
 		} else if (a[j] == c2[l1][j]) {
+
+			data_t nc2 = c2[l1][j];
+
 			for (l = 0; l < nj[j]; ++l) {
 
 				/* higher mode that is not 1st mode: it was
 				 * tied with c2, take the first */
-				if (nkt[l1][j][l] > nkt[l1][j][(int) c2[l1][j]]
+				if (nkt[l1][j][l] > nkt[l1][j][(int) nc2]
 					&& l != c[l1][j]) {
-					c2[l1][j] = l;
+					nc2 = l;
 					break;
 
 				/* equal mode that is earlier in sequence: by
 				 * convention take the first, but keep looking
 				 * for a higher mode */
 				} else if (nkt[l1][j][l]
-					== nkt[l1][j][(int) c2[l1][j]]
-					&& l < c2[l1][j])
-					c2[l1][j] = l;
+						== nkt[l1][j][(int) nc2]
+							&& l < nc2) {
+					nc2 = l;
+				}
 			}
+
+			if (!nkt[l1][j][(int) nc2])
+				c2[l1][j] = KMODES_MISSING;
+			else
+				c2[l1][j] = nc2;
+
 		}
 
 		/* cluster target */
 		/* new 1st mode or new mode ties with 1st and has lower rank */
-		if (nkt[l2][j][(int) a[j]] > nkt[l2][j][(int) c[l2][j]]
+		if (c[l2][j] != KMODES_MISSING
+			&& nkt[l2][j][(int) a[j]] > nkt[l2][j][(int) c[l2][j]]
 			|| (nkt[l2][j][(int) a[j]] == nkt[l2][j][(int) c[l2][j]]
 			&& a[j] < c[l2][j])) {
 			c2[l2][j] = c[l2][j];
 			c[l2][j] = a[j];
-		}
+
+		/* there was no mode in target */
+		} else if (c[l2][j] == KMODES_MISSING) {
+			c[l2][j] = a[j];
 
 		/* new 2nd mode */
-		else if (a[j] != c[l2][j] && (nkt[l2][j][(int) a[j]]	/* CORRECT */
-		//else if ((nkt[l2][j][(int) a[j]]	/* BUGGY */
+		} else if (c2[l2][j] != KMODES_MISSING
+			&& a[j] != c[l2][j] && (nkt[l2][j][(int) a[j]]	/* CORRECT */
+		//	&& (nkt[l2][j][(int) a[j]]	/* BUGGY */
 			> nkt[l2][j][(int) c2[l2][j]] ||
 			(nkt[l2][j][(int) a[j]] == nkt[l2][j][(int) c2[l2][j]]
 			&& a[j] < c2[l2][j]))) {
 			c2[l2][j] = a[j];
+		/* there was no second model in target */
+		} else if (a[j] != c2[l2][j] && a[j] != c[l2][j]
+					&& c2[l2][j] == KMODES_MISSING) {
+			c2[l2][j] = a[j];
 		}
+		/*
+fprintf(stderr, "cluster=%u, j=%u:", l1, j);
+for (l=0; l < nj[j]; ++l)
+fprintf(stderr, " %u", nkt[l1][j][l]);
+fprintf(stderr, ": c=%u, c2=%u\n", c[l1][j], c2[l1][j]);
+fprintf(stderr, "cluster=%u, j=%u:", l2, j);
+for (l=0; l < nj[j]; ++l)
+fprintf(stderr, " %u", nkt[l2][j][l]);
+fprintf(stderr, ": c=%u, c2=%u\nMoving a=%u\n", c[l2][j], c2[l2][j], a[j]);
+		*/
 	}
 } /* update_modes */
 
@@ -1320,10 +1444,14 @@ kmodes_huang(data_t **x, unsigned int n, unsigned int p, data_t **seeds,
 		/* compute centers [PARALLEL] */
 		for (j = 0; j < p; j++) {
 			unsigned int max = 0;
+
+			seeds[0][j] = KMODES_MISSING;
+
 			for (l = 0; l < __nj[j]; l++) {
 				__njc[j][l] = 0;
 				for (i = 0; i < n; i++)
-					__njc[j][(int) x[i][j]]++;
+					if (x[i][j] != KMODES_MISSING)
+						__njc[j][(int) x[i][j]]++;
 				if (max < __njc[j][l]) {
 					max = __njc[j][l];
 					seeds[0][j] = l;
@@ -1339,7 +1467,7 @@ kmodes_huang(data_t **x, unsigned int n, unsigned int p, data_t **seeds,
 	} else if (K == n) {
 		for (i = 0; i < n; i++) {
 			nclass[i] = 1;	/* 1 member per cluster */
-			memcpy(seeds[i], x[i], p * sizeof **seeds);
+			memcpy(seeds[i], x[i], p * sizeof(**seeds));
 			ic1[i] = i;
 			cost[i] = 0;
 		}
@@ -1361,9 +1489,9 @@ kmodes_huang(data_t **x, unsigned int n, unsigned int p, data_t **seeds,
 	}
 
 	if (use_minor_mode && !__c2) {
-		__c2 = malloc(K * sizeof *__c2);
+		__c2 = malloc(K * sizeof(*__c2));
 		/* allocate c2 memory as a single block */
-		data_t *tmp = malloc(K * p * sizeof **__c2);
+		data_t *tmp = malloc(K * p * sizeof(**__c2));
 
 		if (!__c2 || !tmp) {
 			*ifault = KMODES_MEMORY_ERROR;
@@ -1375,13 +1503,17 @@ kmodes_huang(data_t **x, unsigned int n, unsigned int p, data_t **seeds,
 			tmp += p;
 
 			/* initialize minor mode to be NOT initial modes */
-			for (j = 0; j < p; j++)
+			for (j = 0; j < p; j++) {
+				__c2[k][j] = KMODES_MISSING;
 				__c2[k][j] = __nj[j] > 1 && seeds[k][j] == 0 ? 1 : 0;
+			}
 		}
 	} else if (use_minor_mode) {
 		for (k = 0; k < K; ++k)
-			for (j = 0; j < p; j++)
+			for (j = 0; j < p; j++) {
+				__c2[k][j] = KMODES_MISSING;
 				__c2[k][j] = __nj[j] > 1 && seeds[k][j] == 0 ? 1 : 0;
+			}
 	}
 
 	for (k = 0; k < K; ++k) {
@@ -1410,37 +1542,52 @@ kmodes_huang(data_t **x, unsigned int n, unsigned int p, data_t **seeds,
 
 		/* update type counts in cluster k & affected mode */
 		for (j = 0; j < p; ++j) {
+			if (x[i][j] == KMODES_MISSING)
+				continue;
+
 			__nkjc[ic1[i]][j][(int) x[i][j]]++;
 
 			/* update affected mode: as per Huang1997 */
 			if (opt->init_update) {
 				if (use_minor_mode) {
-					if (__nkjc[k][j][(int) x[i][j]] >
+					if (seeds[k][j] != KMODES_MISSING
+						&& __nkjc[k][j][(int) x[i][j]] >
 						__nkjc[k][j][(int) seeds[k][j]]) {
 						__c2[k][j] = seeds[k][j];
 						seeds[k][j] = x[i][j];
-					} else if (__nkjc[k][j][(int) x[i][j]]
+					} else if (seeds[k][j] != KMODES_MISSING
+						&& __nkjc[k][j][(int) x[i][j]]
 						== __nkjc[k][j][(int) seeds[k][j]]
 						&& x[i][j] < seeds[k][j]) {
 						__c2[k][j] = seeds[k][j];
 						seeds[k][j] = x[i][j];
-					} else if (x[i][j] != seeds[k][j]
+					} else if (seeds[k][j] == KMODES_MISSING) {
+						seeds[k][j] = x[i][j];
+					} else if (__c2[k][j] != KMODES_MISSING
+						&& x[i][j] != seeds[k][j]
 						&& __nkjc[k][j][(int) x[i][j]]
 						> __nkjc[k][j][(int) __c2[k][j]]) {
 						__c2[k][j] = x[i][j];
-					} else if (x[i][j] != seeds[k][j]
+					} else if (__c2[k][j] != KMODES_MISSING
+						&& x[i][j] != seeds[k][j]
 						&& __nkjc[k][j][(int) x[i][j]]
 						== __nkjc[k][j][(int) __c2[k][j]]
 						&& x[i][j] < __c2[k][j]) {
 						__c2[k][j] = x[i][j];
+					} else if (__c2[k][j] == KMODES_MISSING) {
+						__c2[k][j] = x[i][j];
 					}
 				} else {
-					if (__nkjc[k][j][(int) x[i][j]]
+					if (seeds[k][j] != KMODES_MISSING
+						&& __nkjc[k][j][(int) x[i][j]]
 						> __nkjc[k][j][(int) seeds[k][j]])
 						seeds[k][j] = x[i][j];
-					else if (__nkjc[k][j][(int) x[i][j]]
+					else if (seeds[k][j] != KMODES_MISSING
+						&& __nkjc[k][j][(int) x[i][j]]
 						== __nkjc[k][j][(int) seeds[k][j]]
 						&& x[i][j] < seeds[k][j])
+						seeds[k][j] = x[i][j];
+					else if (seeds[k][j] == KMODES_MISSING)
 						seeds[k][j] = x[i][j];
 				}
 			}
@@ -1459,7 +1606,7 @@ kmodes_huang(data_t **x, unsigned int n, unsigned int p, data_t **seeds,
 			*ifault = KMODES_NULL_CLUSTER_ERROR;
 			return INFINITY;
 		}
-	
+
 	if (!max_iter)
 		return opt->weighted
 			? compute_weighted_cost(__nkjc, cost, seeds, K, p)
@@ -1534,14 +1681,17 @@ kmodes_huang(data_t **x, unsigned int n, unsigned int p, data_t **seeds,
 				/* update affected modes & coordinate counts */
 				for (j = 0; j < p; ++j) {
 
+					if (x[i][j] == KMODES_MISSING)
+						continue;
+
 					/* coordinate counts */
 					__nkjc[k][j][(int) x[i][j]]++;
 					__nkjc[ic1[i]][j][(int) x[i][j]]--;
 
 					/* new mode */
-					max = 0;
-					max_nkjc = __nkjc[k][j][(int) max];
-					for (l = 1; l < __nj[j]; ++l)
+					max = KMODES_MISSING;
+					max_nkjc = 0;
+					for (l = 0; l < __nj[j]; ++l)
 						if (__nkjc[k][j][l] > max_nkjc) {
 							max = l;
 							max_nkjc = __nkjc[k][j][
@@ -1550,9 +1700,9 @@ kmodes_huang(data_t **x, unsigned int n, unsigned int p, data_t **seeds,
 					seeds[k][j] = max;
 
 					/* previous mode */
-					max = 0;
-					max_nkjc = __nkjc[ic1[i]][j][(int) max];
-					for (l = 1; l < __nj[j]; ++l)
+					max = KMODES_MISSING;
+					max_nkjc = 0;
+					for (l = 0; l < __nj[j]; ++l)
 						if (__nkjc[ic1[i]][j][l]
 							> max_nkjc) {
 							max = l;
@@ -1651,7 +1801,7 @@ double kmodes_lloyd(data_t **x, data_t **c, unsigned int *nclass, unsigned int *
 #ifdef __KMODES_DEBUGGING__
 	allocate_nkjc_debug(K, p, l);
 #endif
-    
+
 	/* initialize cluster counts */
 	for (k = 0; k < K; ++k)
 		nclass[k] = 0;
@@ -1669,15 +1819,16 @@ double kmodes_lloyd(data_t **x, data_t **c, unsigned int *nclass, unsigned int *
 		nclass[k]++;
 		ic1[i] = k;
 		for (j = 0; j < p; ++j)
-			__nkjc[k][j][(int) x[i][j]]++;
+			if (x[i][j] != KMODES_MISSING)
+				__nkjc[k][j][(int) x[i][j]]++;
 	}
 
 	/* update modes */
 	for (k = 0; k < K; ++k)			/* for each cluster */
 		for (j = 0; j < p; ++j) {	/* for each coordinate */
-			c[k][j] = 0;
-			max_nkjc = __nkjc[k][j][(int) c[k][j]];
-			for (l = 1; l < __nj[j]; ++l)
+			c[k][j] = KMODES_MISSING;
+			max_nkjc = 0;
+			for (l = 0; l < __nj[j]; ++l)
 				if (__nkjc[k][j][l] > max_nkjc) {
 					c[k][j] = l;
 					max_nkjc =
@@ -1702,8 +1853,10 @@ double kmodes_lloyd(data_t **x, data_t **c, unsigned int *nclass, unsigned int *
 				nclass[ic1[i]]--;
 				nclass[k]++;
 				for (j = 0; j < p; ++j) {
-					__nkjc[k][j][(int) x[i][j]]++;
-					__nkjc[ic1[i]][j][(int) x[i][j]]--;
+					if (x[i][j] != KMODES_MISSING) {
+						__nkjc[k][j][(int) x[i][j]]++;
+						__nkjc[ic1[i]][j][(int) x[i][j]]--;
+					}
 				}
 				ic1[i] = k;
 			}
@@ -1715,9 +1868,9 @@ double kmodes_lloyd(data_t **x, data_t **c, unsigned int *nclass, unsigned int *
 		/* update all modes */
 		for (k = 0; k < K; ++k)
 			for (j = 0; j < p; ++j) {
-				c[k][j] = 0;
-				max_nkjc = __nkjc[k][j][(int) c[k][j]];
-				for (l = 1; l < __nj[j]; ++l)
+				c[k][j] = KMODES_MISSING;
+				max_nkjc = 0;
+				for (l = 0; l < __nj[j]; ++l)
 					if (__nkjc[k][j][l] > max_nkjc) {
 						c[k][j] = l;
 						max_nkjc = __nkjc[k][j][
@@ -1757,7 +1910,9 @@ static inline int compute_modes(size_t ***nkjc, data_t **modes, data_t **mmodes,
 	for (unsigned int k = 0; k < K; ++k)
 		for (unsigned int j = 0; j < p; ++j) {
 			size_t max_nkjc = 0, max2_nkjc = 0;
-			unsigned int max_l = 0, max2_l = 0;
+			unsigned int max_l = KMODES_MISSING;
+			unsigned int max2_l = KMODES_MISSING;
+
 			for (unsigned int l = 0; l < __nj[j]; ++l) {
 				if (nkjc[k][j][l] > max_nkjc) {
 					max2_nkjc = max_nkjc;
@@ -1843,10 +1998,11 @@ static inline double hd_coord(data_t *x, data_t *y, unsigned int j, int wgt)
 	}
 #endif
 
-	return( x[j] == y[j] ? 0. : wgt
-		? (double) (__njc[j][(int) x[j]] + __njc[j][(int) y[j]])
+	return( x[j] == KMODES_MISSING || y[j] == KMODES_MISSING
+		|| x[j] == y[j] ? 0.
+		: wgt ? (double) (__njc[j][(int) x[j]] + __njc[j][(int) y[j]])
 			/ (__njc[j][(int) x[j]] * __njc[j][(int) y[j]])
-		: 1.);
+			: 1.);
 } /* hd_coord */
 
 
@@ -1970,8 +2126,12 @@ int kmodes_init_random_from_partition(data_t **x, unsigned int n, unsigned int p
 		return mmessage(ERROR_MSG, INVALID_USER_INPUT,
 			"Requesting %u clusters with only %u reads.\n", K, n);
 
+	/* allocate category counts: last arg force __njc */
+	if (!allocate_and_compute_category_counts(x, n, p, K, 1))
+		return mmessage(ERROR_MSG, MEMORY_ALLOCATION, "__nj");
+
 	if (!sd_idx) {
-		sidx = malloc(K * sizeof *sidx);
+		sidx = malloc(K * sizeof(*sidx));
 
 		if (!sidx)
 			return mmessage(ERROR_MSG, MEMORY_ALLOCATION,
@@ -2001,7 +2161,7 @@ int kmodes_init_random_from_partition(data_t **x, unsigned int n, unsigned int p
 			unsigned int j = (unsigned int) (unif_rand() * nc[k]);
 
 			sidx[k] = j;
-			memcpy(seeds[k], x[j], p * sizeof **x);
+			memcpy(seeds[k], x[j], p * sizeof(**x));
 		}
 
 		/* remainding seeds */
@@ -2024,12 +2184,12 @@ int kmodes_init_random_from_partition(data_t **x, unsigned int n, unsigned int p
 						same = 1;
 						break;
 					}
-				memcpy(seeds[k], x[sidx[k]], p * sizeof **x);
+				memcpy(seeds[k], x[sidx[k]], p * sizeof(**x));
 			} while (same);
 		}
 	} else if (K < true_k) {
 		/* select clusters without replacement */
-		unsigned int *sel_k = malloc(K * sizeof *sel_k);
+		unsigned int *sel_k = malloc(K * sizeof(*sel_k));
 
 		sample(true_k, K, sel_k);
 		for (unsigned int k = 0; k < K; ++k) {
@@ -2037,12 +2197,23 @@ int kmodes_init_random_from_partition(data_t **x, unsigned int n, unsigned int p
 
 			if (sidx)
 				sidx[k] = j;
-			memcpy(seeds[k], x[j], p * sizeof **x);
+			memcpy(seeds[k], x[j], p * sizeof(**x));
 		}
 		free(sel_k);
 	}
 
 	free(nc);
+
+	/* [TODO] Don't trigger this always. Need flag for missingness. */
+	for (unsigned int i = 0; i < K; ++i) {
+		for (unsigned int j = 0; j < p; ++j) {
+			if (seeds[i][j] == KMODES_MISSING)
+				seeds[i][j] = (data_t) (unif_rand() * __nj[j]);
+			//fprintf(stderr, " %u", seeds[i][j]);
+		}
+		//fprintf(stderr, "\n");
+	}
+	//fprintf(stderr, "MISSING: %u\n", KMODES_MISSING);
 
 	return NO_ERROR;
 } /* kmodes_init_random_from_partition */
@@ -2105,6 +2276,10 @@ int kmodes_init_h97a(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 	UNUSED(n);
 	unsigned int k = 0, l = 0, m;
 
+	/* allocate category counts: last arg force __njc */
+	if (!allocate_and_compute_category_counts(x, n, p, K, 1))
+		return mmessage(ERROR_MSG, MEMORY_ALLOCATION, "__nj");
+
 	do {
 			/*
 		memcpy(seeds[k], x[k], n * **seeds);
@@ -2119,6 +2294,17 @@ int kmodes_init_h97a(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 		if (!k || m == k) ++k;
 		++l;
 	} while (k < K);
+
+	/* [TODO] Don't trigger this always. Need flag for missingness. */
+	for (unsigned int i = 0; i < K; ++i) {
+		for (unsigned int j = 0; j < p; ++j) {
+			if (seeds[i][j] == KMODES_MISSING)
+				seeds[i][j] = (data_t) (unif_rand() * __nj[j]);
+			//fprintf(stderr, " %u", seeds[i][j]);
+		}
+		//fprintf(stderr, "\n");
+	}
+	//fprintf(stderr, "MISSING: %u\n", KMODES_MISSING);
 
 	return NO_ERROR;
 } /* kmodes_init_h97a */
@@ -2145,7 +2331,7 @@ int kmodes_init_random_seeds(data_t **x, unsigned int n, unsigned int p, unsigne
 			"Requesting %u clusters with only %u reads.\n", K, n);
 
 	if (!sd_idx) {
-		sidx = malloc(K * sizeof *sidx);
+		sidx = malloc(K * sizeof(*sidx));
 
 		if (!sidx)
 			return mmessage(ERROR_MSG, MEMORY_ALLOCATION,
@@ -2177,11 +2363,22 @@ int kmodes_init_random_seeds(data_t **x, unsigned int n, unsigned int p, unsigne
                                         break;
                                 }
                 } while (same);
-                memcpy(seeds[i], x[sidx[i]], p * sizeof **x);
+                memcpy(seeds[i], x[sidx[i]], p * sizeof(**x));
         }
 
 	if (!sd_idx)
 		free(sidx);
+
+	/* [TODO] Don't trigger this always. Need flag for missingness. */
+	for (unsigned int i = 0; i < K; ++i) {
+		for (unsigned int j = 0; j < p; ++j) {
+			if (x[i][j] == KMODES_MISSING)
+				x[i][j] = (unsigned int) (unif_rand() * __nj[j]);
+			//fprintf(stderr, " %u", x[i][j]);
+		}
+		//fprintf(stderr, "\n");
+	}
+	//fprintf(stderr, "MISSING: %u\n", KMODES_MISSING);
 
 	return NO_ERROR;
 } /* kmodes_init_random_seeds */
@@ -2218,7 +2415,7 @@ int kmodes_init_h97(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 
 	/* allocate space for seed indices */
 	if (!sd_idx) {
-		sidx = malloc(K * sizeof *sidx);
+		sidx = malloc(K * sizeof(*sidx));
 
 		if (!sidx)
 			return mmessage(ERROR_MSG, MEMORY_ALLOCATION,
@@ -2226,7 +2423,7 @@ int kmodes_init_h97(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 	} else
 		sidx = sd_idx;
 
-	size_t *idx = malloc(ncat * sizeof *idx);
+	size_t *idx = malloc(ncat * sizeof(*idx));
 	if (!idx) {
 		if (!sd_idx)
 			free(sidx);
@@ -2286,6 +2483,17 @@ int kmodes_init_h97(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 		free(sidx);
 	free(idx);
 
+	/* [TODO] Don't trigger this always. Need flag for missingness. */
+	for (unsigned int i = 0; i < K; ++i) {
+		for (unsigned int j = 0; j < p; ++j) {
+			if (x[i][j] == KMODES_MISSING)
+				x[i][j] = (unsigned int) (unif_rand() * __nj[j]);
+			//fprintf(stderr, " %u", x[i][j]);
+		}
+		//fprintf(stderr, "\n");
+	}
+	//fprintf(stderr, "MISSING: %u\n", KMODES_MISSING);
+
 	return NO_ERROR;
 } /* kmodes_init_h97 */
 
@@ -2321,7 +2529,7 @@ int kmodes_init_hd17(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 
 	/* allocate space for seed indices */
 	if (!sd_idx) {
-		sidx = malloc(K * sizeof *sidx);
+		sidx = malloc(K * sizeof(*sidx));
 
 		if (!sidx)
 			return mmessage(ERROR_MSG, MEMORY_ALLOCATION,
@@ -2365,7 +2573,7 @@ int kmodes_init_hd17(data_t **x, unsigned int n, unsigned int p, unsigned int K,
                                         break;
                                 }
 		} while (same);
-		memcpy(seeds[k], x[sidx[k]], p * sizeof **x);
+		memcpy(seeds[k], x[sidx[k]], p * sizeof(**x));
 	}
 
 	if (!sd_idx)
@@ -2394,6 +2602,7 @@ int allocate_density(data_t **x, unsigned int n, unsigned int p)
 	for (unsigned int i = 0; i < n; ++i) {
 		__dens[i] = 0;
 		for (unsigned int j = 0; j < p; ++j)
+			if (x[i][j] != KMODES_MISSING)
 			__dens[i] += __njc[j][(int) x[i][j]];
 		__dens[i] /= (double) n * p;
 	}
@@ -2470,7 +2679,7 @@ int kmodes_init_clb09(data_t **x, unsigned int n, unsigned int p, unsigned int K
 
 	/* first seed is most dense (or random) */
 	if (!k1){
-		memcpy(seeds[k1++], x[idx], p * sizeof **x);
+		memcpy(seeds[k1++], x[idx], p * sizeof(**x));
 		if (sd_idx && (type == _SIZE_T_P))
 			sd_idx_s[0] = idx;
 		else if(sd_idx && type == UNSIGNED_INT)
@@ -2510,7 +2719,7 @@ int kmodes_init_clb09(data_t **x, unsigned int n, unsigned int p, unsigned int K
 		}
 
 		/* ...for next seed */
-		memcpy(seeds[k], x[idx], p * sizeof **x);
+		memcpy(seeds[k], x[idx], p * sizeof(**x));
 		if (sd_idx && (type == _SIZE_T_P))
 			sd_idx_s[k] = idx;
 		else if(sd_idx && type == UNSIGNED_INT)
@@ -2633,7 +2842,7 @@ kmodes_init_av07(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 			if (sd_idx)
 				sd_idx[j] = s;
 
-			memcpy(seeds[j], x[s], p * sizeof **seeds);
+			memcpy(seeds[j], x[s], p * sizeof(**seeds));
 
 			/* reset minimum distance, maybe */
 			dsum = 0;
@@ -2659,8 +2868,12 @@ kmodes_init_av07(data_t **x, unsigned int n, unsigned int p, unsigned int K,
  * @param n	number of coordinates
  * @return	-1, 0, 1 order indicator
  */
-int compare_data(data_t **x, unsigned int i, unsigned int j, unsigned int n) {
+int compare_data(data_t **x, unsigned int i, unsigned int j, unsigned int n)
+{
 	for (unsigned int l = 0; l < n; ++l) {
+		if (x[i][l] == KMODES_MISSING
+			|| x[j][j] == KMODES_MISSING)
+			continue;
 		if (x[i][l] > x[j][l])
 			return 1;
 		else if (x[i][l] < x[j][l])
@@ -2669,8 +2882,12 @@ int compare_data(data_t **x, unsigned int i, unsigned int j, unsigned int n) {
 	return 0;
 } /* compare_data */
 
-int compare_data_to_seed(data_t **x, unsigned int i, data_t *seed, unsigned int p) {
+int compare_data_to_seed(data_t **x, unsigned int i, data_t *seed,
+								unsigned int p)
+{
 	for (unsigned int j = 0; j < p; ++j) {
+		if (x[i][j] == KMODES_MISSING || seed[j] == KMODES_MISSING)
+			continue;
 		if (x[i][j] > seed[j])
 			return 1;
 		else if (x[i][j] < seed[j])
@@ -2706,9 +2923,10 @@ size_t allocate_and_compute_category_counts(data_t **x, unsigned int n, unsigned
 			return l;
 		}
 	/* will need total number of categories, summed over coordinates */
-	} else
+	} else {
 		for (j = 0; j < p; ++j)
 			l += __nj[j];
+	}
 
 	return l;
 } /* allocate_and_compute_category_counts */
@@ -2725,14 +2943,16 @@ size_t allocate_and_compute_category_counts(data_t **x, unsigned int n, unsigned
 size_t allocate_and_compute_nj(data_t **x, unsigned int n, unsigned int p)
 {
 	size_t ncat = 0;
-
 	__nj = calloc(p, sizeof(*__nj));
+
 	if (!__nj)
 		return ncat;
-	/* find no. categories in each column */
+
+	/* find no. non-missing categories in each column */
 	for (unsigned int j = 0; j < p; ++j) {
 		for (unsigned int i = 0; i < n; ++i)
-			if (x[i][j] > __nj[j]) __nj[j] = x[i][j];
+			if (x[i][j] != KMODES_MISSING && x[i][j] > __nj[j])
+				__nj[j] = x[i][j];
 		++__nj[j];	/* assumes 0 is one of the values */
 		ncat += __nj[j];
 	}
@@ -2754,12 +2974,12 @@ int allocate_and_compute_njc(data_t **x, unsigned int n, unsigned int p, size_t 
 	if (!__nj)
 		return mmessage(ERROR_MSG, INTERNAL_ERROR, "__nj needs to be "
 			"allocated before allocating __njc");
-	size_t *tmp = malloc(ncat * sizeof **__njc);
+	size_t *tmp = malloc(ncat * sizeof(**__njc));
 
 	if (!tmp)
 		return mmessage(ERROR_MSG, MEMORY_ALLOCATION, "tmp");
 
-	__njc = malloc(p * sizeof *__njc);
+	__njc = malloc(p * sizeof(*__njc));
 
 	if (!__njc) {
 		free(tmp);
@@ -2772,9 +2992,10 @@ int allocate_and_compute_njc(data_t **x, unsigned int n, unsigned int p, size_t 
 		for (unsigned int l = 0; l < __nj[j]; ++l)
 			__njc[j][l] = 0;
 		for (unsigned int i = 0; i < n; ++i)
-			++__njc[j][(int) x[i][j]];
-		for (unsigned int l = 0; l < __nj[j]; ++l) {
-		}
+			if (x[i][j] != KMODES_MISSING)
+				++__njc[j][(int) x[i][j]];
+		/* for (unsigned int l = 0; l < __nj[j]; ++l) {
+		}*/
 	}
 
 	return NO_ERROR;
@@ -2814,15 +3035,21 @@ int allocate_nkjc(unsigned int K, unsigned int p, size_t ncat)
 		return mmessage(ERROR_MSG, INTERNAL_ERROR, "__nj needs to be "
 			"allocated before allocating __njc");
 
-	size_t *tmp = calloc(ncat * K, sizeof ***__nkjc);
+	size_t *tmp = calloc(ncat * K, sizeof(***__nkjc));
 
-	if (!tmp)
+	if (!tmp) {
+		mmessage(ERROR_MSG, MEMORY_ALLOCATION, "Could not allocate "
+				"(%zu * %u)-dim array.\n", ncat, K);
 		goto ALLOCATE_NKJC_ERROR;
+	}
 
 	CMAKE_2ARRAY(__nkjc, K, p);
 
-	if (!__nkjc)
+	if (!__nkjc) {
+		mmessage(ERROR_MSG, MEMORY_ALLOCATION, "Could not allocate "
+				"(%u x %u) 2d-array.\n", K, p);
 		goto ALLOCATE_NKJC_ERROR;
+	}
 
 	for (unsigned int k = 0; k < K; ++k)
 		for (unsigned int j = 0; j < p; ++j) {
@@ -2864,8 +3091,8 @@ int reset_nkjc(size_t ***nkjc, unsigned int K, unsigned int p)
 
 
 /**
- * Compute category counts per cluster per site.  This is mostly used for debugging
- * but it is also used to initialize from a partition.
+ * Compute category counts per cluster per site.  This is mostly used for
+ * debugging but it is also used to initialize from a partition.
  *
  * @param nkjc	counts of categories per cluster per site (K x p x __nj)
  * @param x	data (n x p)
@@ -2873,13 +3100,15 @@ int reset_nkjc(size_t ***nkjc, unsigned int K, unsigned int p)
  * @param n	number of observations
  * @param p	number of coordinates
  */
-void compute_nkjc(size_t ***nkjc, data_t **x, unsigned int *ic, unsigned int n, unsigned int p)
+void compute_nkjc(size_t ***nkjc, data_t **x, unsigned int *ic,
+						unsigned int n, unsigned int p)
 {
 	if (!nkjc)
 		return;
 	for (unsigned int i = 0; i < n; ++i)
 		for (unsigned int j = 0; j < p; ++j)
-			nkjc[ic[i]][j][(int) x[i][j]]++;
+			if (x[i][j] != KMODES_MISSING)
+				nkjc[ic[i]][j][(int) x[i][j]]++;
 } /* compute_nkjc */
 
 
@@ -2937,8 +3166,14 @@ const char *kmodes_init_method(int method)
 		return "random initialization from true partition";
 	else if (method == KMODES_INIT_RANDOM_FROM_SET)
 		return "random initialization from set of seeds";
-    else if (method == KMODES_INIT_ABUNDANCE)
-        return "by masked abundance";
+	else if (method == KMODES_INIT_TRUTH)
+		return "initialize from true modes or partition";
+	else if (method == KMODES_INIT_TRUE_MODES)
+		return "initialize from true modes";
+	else if (method == KMODES_INIT_TRUE_PARTITION)
+		return "initialize from true partition";
+	else if (method == KMODES_INIT_ABUNDANCE)
+		return "by masked abundance";
 	else
 		return NULL;
 }/* kmodes_init_method */
@@ -3056,6 +3291,16 @@ void reset_k()
 
 #ifdef __KMODES_DEBUGGING__
 
+void kmodes_print_modes_debug(data_t **modes, unsigned int K, unsigned int p)
+{
+	return;
+	for (unsigned int k = 0; k < K; ++k) {
+		for (unsigned int j = 0; j < p; ++j)
+			fprintf(stderr, " %u", modes[k][j]);
+		fprintf(stderr, "\n");
+	}
+} /* kmodes_print_modes_debug */
+
 
 /**
  * Allocate memory for __nkjc_debug used for debugging.
@@ -3121,8 +3366,10 @@ double debug_cost_to_move(data_t **x, unsigned int n, unsigned int p, unsigned i
 	compute_nkjc(__nkjc_debug, x, ic, n, p);
 	curr_cost = compute_cost_from_nkjc(__nkjc_debug, K, p, wgt);
 	for (unsigned int j = 0; j < p; ++j) {
-		__nkjc_debug[l1][j][(int) x[i][j]]--;
-		__nkjc_debug[l2][j][(int) x[i][j]]++;
+		if (x[i][j] != KMODES_MISSING) {
+			__nkjc_debug[l1][j][(int) x[i][j]]--;
+			__nkjc_debug[l2][j][(int) x[i][j]]++;
+		}
 	}
 	new_cost = compute_cost_from_nkjc(__nkjc_debug, K, p, wgt);
 
@@ -3155,7 +3402,7 @@ static inline double compute_cost_from_nkjc(size_t ***nkjc, unsigned int K,
 
 			/* find mode */
 			max = 0;
-			max_l = 0;
+			max_l = KMODES_MISSING;
 			for (unsigned int l = 0; l < __nj[j]; ++l)
 				if (max < nkjc[k][j][l]) {
 					max = nkjc[k][j][l];
@@ -3198,7 +3445,8 @@ void compute_and_compare_modes(size_t ***nkjc, data_t **modes, data_t **mmodes,
 	for (unsigned int k = 0; k < K; ++k)
 		for (unsigned int j = 0; j < p; ++j) {
 			size_t max_nkjc = 0, max2_nkjc = 0;
-			unsigned int max_l = 0, max2_l = 0;
+			unsigned int max_l = KMODES_MISSING;
+			unsigned int max2_l = KMODES_MISSING;
 			for (unsigned int l = 0; l < __nj[j]; ++l)
 				if (nkjc[k][j][l] > max_nkjc) {
 					max2_nkjc = max_nkjc;
@@ -3211,16 +3459,16 @@ void compute_and_compare_modes(size_t ***nkjc, data_t **modes, data_t **mmodes,
 					max2_l = l;
 				}
 			if (max_l != modes[k][j]) {
-				summarize_clusters("compute_and_compare_modes",
-					nkjc, modes, mmodes, K, p);
+				summarize_cluster("compute_and_compare_modes",
+					nkjc, modes, mmodes, k, p);
 				exit(mmessage(DEBUG_MSG, INTERNAL_ERROR,
 					"Cluster %u, coordinate %zu: mode is %u"
 					" and should be %u\n", k, j, modes[k][j],
 					max_l));
 			}
 			if (mmodes && max2_l != mmodes[k][j]) {
-				summarize_clusters("compute_and_compare_modes",
-					nkjc, modes, mmodes, K, p);
+				summarize_cluster("compute_and_compare_modes",
+					nkjc, modes, mmodes, k, p);
 				exit(mmessage(DEBUG_MSG, INTERNAL_ERROR,
 					"Cluster %u, cooordinate %zu: minor "
 					"mode is %u and should be %u\n", k, j,
@@ -3284,12 +3532,46 @@ void summarize_clusters(char const *str, size_t ***nkjc, data_t **c,
 			fprintf(stderr, "\n");
 		}
 		for (unsigned int j = 0; j < p; ++j) {
-			fprintf(stderr, "Coordinate %u:", j);
+			size_t sum = 0;
+			for (unsigned int l = 0; l < __nj[j]; ++l)
+				sum += nkjc[k][j][l];
+			if (!sum)
+				continue;
+			fprintf(stderr, "Cluster %u, Coordinate %u:", k, j);
 			for (unsigned int l = 0; l < __nj[j]; ++l)
 				fprintf(stderr, " %zu", nkjc[k][j][l]);
-			fprintf(stderr, "\n");
+			fprintf(stderr, ": %zu %zu\n", c[k][j], c2[k][j]);
 		}
 	}
 } /* summarize_clusters */
+
+void summarize_cluster(char const *str, size_t ***nkjc, data_t **c,
+	data_t **c2, unsigned int k, unsigned int p)
+{
+	if (!nkjc)
+		return;
+
+	debug_msg(0, DEBUG_I, "%s\n", str);
+	fprintf(stderr, "Cluster %u:", k);
+	if (c)
+		fprint_data_ts(stderr, c[k], p, 1, 0);
+	if (c2) {
+		fprintf(stderr, "; ");
+		fprint_data_ts(stderr, c2[k], p, 1, 1);
+	} else {
+		fprintf(stderr, "\n");
+	}
+	for (unsigned int j = 0; j < p; ++j) {
+		size_t sum = 0;
+		for (unsigned int l = 0; l < __nj[j]; ++l)
+			sum += nkjc[k][j][l];
+		if (!sum)
+			continue;
+		fprintf(stderr, "Cluster %u, Coordinate %u:", k, j);
+		for (unsigned int l = 0; l < __nj[j]; ++l)
+			fprintf(stderr, " %zu", nkjc[k][j][l]);
+		fprintf(stderr, ": %zu %zu\n", c[k][j], c2[k][j]);
+	}
+} /* summarize_cluster */
 
 #endif
