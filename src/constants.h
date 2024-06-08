@@ -49,5 +49,6 @@
 typedef uint32_t data_t;
 #define KMODES_PRIu_data_t PRIu32
 #define KMODES_SCNu_data_t SCNu32
+#define KMODES_MISSING UINT32_MAX
 
 #endif
