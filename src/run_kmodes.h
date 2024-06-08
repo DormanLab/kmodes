@@ -36,6 +36,7 @@ struct _options {
 	unsigned int min_nk;		/*<! minimum K for no update ini */
 	unsigned int max_nk;		/*<! minimum K for no update ini */
 	unsigned int n_nk;		/*<! number of no up K */
+	data_t missing_value;		/*<! missing value in data */
 
 	/* run conditions */
 	kmodes_options *kopt;	/*<! kmodes run options passed to algorithms */

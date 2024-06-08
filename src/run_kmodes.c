@@ -44,6 +44,7 @@ void write_status(data *dat, options *opt, FILE *fps, FILE *fpi, unsigned int i,
 
 int allocate_data_for_k(data *dat, unsigned int k);
 int finish_make_data(data *dat, options *opt);
+int make_contiguous_cluster_ids(data *dat, options *opt);
 void update_status(data *dat, options *opt, FILE *fps, FILE *fpi, unsigned int i, TIME_STRUCT *start);
 void compute_costs(double *crit, double *var, double *size, unsigned int n, unsigned int K, double *cost, double *rrcost, double *krcost, double *sd, double *rsd, double *ksd);
 void compute_jump_stats(double cost, double rrcost, double krcost, double pcost, double prrcost, double pkrcost, double *jump, double *rjump, double *kjump, double Y, int reset);
@@ -116,7 +117,7 @@ int run_kmodes(data *dat, options *opt)
 	if (opt->init_method == KMODES_INIT_ABUNDANCE
 				&& (err = mask_nhash(dat, opt)))
 		goto CLEAR_AND_EXIT;
-	
+
 	/* will run k-modes: do setup */
 	if (opt->n_init && (opt->kmodes_algorithm == KMODES_HUANG
 			|| opt->kmodes_algorithm == KMODES_HARTIGAN_WONG)) {
@@ -168,7 +169,7 @@ int run_kmodes(data *dat, options *opt)
 				}
 			}
 		}
-	
+
 		/* run one of k-modes algorithms */
 		if (opt->kmodes_algorithm == KMODES_HUANG) {
 			dat->total = kmodes_huang(dat->dmat,
@@ -280,7 +281,8 @@ int initialize(data *dat, options *opt)
 	for (unsigned int j = 0; j < opt->n_inner_init; ++j) {
 
 		/* modes not provided by user */
-		if (!opt->n_sd_idx && !opt->pfile) {
+		if (!opt->n_sd_idx && !opt->pfile
+			&& opt->init_method != KMODES_INIT_TRUE_PARTITION) {
 
 			if (opt->init_method
 				== KMODES_INIT_RANDOM_FROM_PARTITION)
@@ -322,6 +324,7 @@ int initialize(data *dat, options *opt)
 					seeds[k][j] =
 						dat->dmat[seed_idx[k]][j];
 				/* retaining: WHY DOES THIS NOT WORK???
+				 * because you need sizeof(), silly!
 				memcpy(dat->seeds[k],
 					dat->dmat[seed_idx[k]],
 					dat->n_coordinates * *dat->seeds[k]);
@@ -329,7 +332,8 @@ int initialize(data *dat, options *opt)
 			}
 
 		/* user provided a partition file */
-		} else if (opt->pfile) {	/* will only happen once */
+		} else if (opt->pfile
+			|| opt->init_method == KMODES_INIT_TRUE_PARTITION) {	/* will only happen once */
 			kmodes_init_from_partition(dat->dmat,
 				dat->n_observations, dat->n_coordinates, opt->K,
 				opt->weight, seeds, dat->cluster_id);
@@ -987,6 +991,7 @@ int make_options(options **opt) {
 	(*opt)->true_cluster = NULL;
 	(*opt)->true_cluster_size = NULL;
 	(*opt)->true_K = 0;
+	(*opt)->missing_value = UINT32_MAX;
 	(*opt)->n_init = 1;
 	(*opt)->n_inner_init = 1;
 	(*opt)->n_max_iter = 10000;
@@ -1082,6 +1087,9 @@ int parse_options(options *opt, int argc, const char **argv)
 					opt->min_k = k;
 				else if (k > opt->max_k)
 					opt->max_k = k;
+				debug_msg(MINIMAL <= fxn_debug, opt->quiet,
+					"Estimation K: %u (%u - %u)\n", k,
+							opt->min_k, opt->max_k);
 			} else if (argv[i][j] == 'n'
 				&& isdigit((unsigned char)argv[i][j+1])) {
 				unsigned int k = strtoul(&argv[i][j+1], NULL, 0);
@@ -1180,18 +1188,35 @@ int parse_options(options *opt, int argc, const char **argv)
 		case 'm':
 			if (i + 1 == argc)
 				goto CMDLINE_ERROR;
+			/* --missing INT */
+			if (!strncmp(&argv[i][j], "mi", 2)) {
+				opt->missing_value = strtoul(argv[i+1], NULL, 0);
+				debug_msg(MINIMAL <= fxn_debug, opt->quiet,
+							"Missing value: %u\n",
+							opt->missing_value);
+				++i;
+				break;
+			}
+			/* --modes FILE */
 			opt->mfile = argv[++i];
+			debug_msg(MINIMAL <= fxn_debug, opt->quiet,
+				"Mode input file: %s.\n", opt->mfile);
 			if (access(opt->mfile, F_OK) == -1) {
 				opt->mfile = NULL;
 				opt->target = read_cmdline_double(argc,
 					argv, i, (void *)opt);
+				debug_msg(MINIMAL <= fxn_debug, opt->quiet,
+					"Target optimum: %f.\n", opt->target);
 			} else if (i + 1 < argc && argv[i + 1][0] != '-') {
 				opt->mfile_out = argv[++i];
+				debug_msg(MINIMAL <= fxn_debug, opt->quiet,
+						"Modes written to: %s.\n",
+								opt->mfile_out);
 			}
 			break;
 		case 'w':
 			opt->kmodes_algorithm = KMODES_HARTIGAN_WONG;
-			debug_msg(QUIET <= fxn_debug, opt->quiet,
+			debug_msg(MINIMAL <= fxn_debug, opt->quiet,
 				"Using Hartigan and Wong algorithm.\n");
 			break;
 		case 'f':
@@ -1212,7 +1237,7 @@ int parse_options(options *opt, int argc, const char **argv)
 			if (i + 1 == argc)
 				goto CMDLINE_ERROR;
 			opt->soln_file = argv[++i];
-			debug_msg(QUIET <= opt->quiet, opt->quiet,
+			debug_msg(QUIET <= fxn_debug, opt->quiet,
 				"Solution file = %s\n", opt->soln_file);
 			if (i + 1 < argc && argv[i+1][0] != '-') {
 				opt->ini_file = argv[++i];
@@ -1244,6 +1269,8 @@ int parse_options(options *opt, int argc, const char **argv)
 				opt->init_method = KMODES_INIT_RANDOM_FROM_PARTITION;
 			else if (!strcmp(argv[i+1], "rnds"))
 				opt->init_method = KMODES_INIT_RANDOM_FROM_SET;
+			else if (!strcmp(argv[i+1], "truth"))
+				opt->init_method = KMODES_INIT_TRUTH;
 			else if (!strcmp(argv[i+1], "mskabun")) {
 				opt->init_method = KMODES_INIT_ABUNDANCE;
 				++i;
@@ -1269,7 +1296,7 @@ int parse_options(options *opt, int argc, const char **argv)
 							": %u",
 							opt->resample_sites);
 				}
-		
+
 			/* assume seed indices are being provided */
 			} else if (access(argv[i+1], F_OK) == -1) {
 
@@ -1287,13 +1314,17 @@ int parse_options(options *opt, int argc, const char **argv)
 					opt->seed_idx, opt->n_sd_idx,
 					1, 1));
 				i += opt->n_sd_idx - 1;
+				break;
 
 			/* assume seeds are provided in a file */
 			} else {
 				opt->sfile = argv[i+1];
 				//opt->init_method = KMODES_INIT_RANDOM_FROM_SET;
+				debug_msg(MINIMAL <= fxn_debug, opt->quiet,
+					"Seed file: %s.\n", opt->sfile);
+				break;
 			}
-			debug_msg(QUIET <= fxn_debug, opt->quiet,
+			debug_msg(MINIMAL <= fxn_debug, opt->quiet,
 				"Using %s initialization.\n",
 				kmodes_init_method(opt->init_method));
 			++i;
@@ -1418,10 +1449,19 @@ int parse_options(options *opt, int argc, const char **argv)
 
 			break;
 		case 't':
-			opt->seconds = read_cmdline_double(argc, argv,
-				++i, (void *)opt);
-			debug_msg(QUIET <= fxn_debug, opt->quiet,
-				"Running for %.0fs.\n", opt->seconds);
+			/* --truth */
+			if (!strncmp(&argv[i][j], "tr", 2)) {
+				opt->init_method = KMODES_INIT_TRUTH;
+				debug_msg(QUIET <= fxn_debug, opt->quiet,
+					"Using 'truth' initialization.\n");
+			} else if (argv[i][j] == 't') {
+				opt->seconds = read_cmdline_double(argc, argv,
+					++i, (void *)opt);
+				debug_msg(QUIET <= fxn_debug, opt->quiet,
+					"Running for %.0fs.\n", opt->seconds);
+			} else {
+				goto CMDLINE_ERROR;
+			}
 			break;
 		case 'u':
 			opt->update_modes = 1;
@@ -1467,10 +1507,26 @@ int parse_options(options *opt, int argc, const char **argv)
 		opt->n_init = 1;
 		opt->n_inner_init = 1;
 	}
+
+	if (opt->init_method == KMODES_INIT_TRUTH) {
+		if (opt->mfile)
+			opt->init_method = KMODES_INIT_TRUE_MODES;
+		else if (opt->true_column < UINT_MAX)
+			opt->init_method = KMODES_INIT_TRUE_PARTITION;
+		else
+			return mmessage(ERROR_MSG, INVALID_USER_INPUT, "Cannot "
+				"initialize with truth with mode file (--mode) "
+				"or partition (--column or --partition).\n");
+		debug_msg(MINIMAL <= fxn_debug, opt->quiet, "Initialization "
+							"method reset: %s.\n",
+					kmodes_init_method(opt->init_method));
+	}
 	if (opt->n_sd_idx && opt->n_sd_idx != opt->K)
 		return mmessage(ERROR_MSG, INVALID_USER_INPUT, "Incorrect usage"
 			"of -k and -s.\n");
-	else if (opt->n_sd_idx || opt->pfile) {
+	else if (opt->n_sd_idx || opt->pfile
+				|| opt->init_method == KMODES_INIT_TRUE_MODES
+			|| opt->init_method == KMODES_INIT_TRUE_PARTITION) {
 		if (opt->n_init > 1)
 			mmessage(WARNING_MSG, INVALID_USER_INPUT, "Resetting to"
 				" one initialization.\n");
@@ -1480,10 +1536,12 @@ int parse_options(options *opt, int argc, const char **argv)
 			mmessage(WARNING_MSG, INVALID_USER_INPUT, "Resetting to"
 				" run 0 seconds.\n");
 		opt->seconds = 0.;
-		if (opt->shuffle)
+		if (opt->init_method == KMODES_INIT_TRUE_PARTITION
+			&& opt->shuffle) {
 			mmessage(WARNING_MSG, INVALID_USER_INPUT, "Resetting to"
 				" not shuffle data.\n");
-		opt->shuffle = 0;
+			opt->shuffle = 0;
+		}
 	} else if (opt->result_files) {
 		if (opt->K > 0)
 			mmessage(WARNING_MSG, INVALID_USER_INPUT, "No sense "
@@ -1571,7 +1629,9 @@ int process_arg_p(int argc, char const **argv, int *i, int j, options *opt)
 	int fxn_debug = ABSOLUTE_SILENCE;
 	int use_dirichlet = 0;
 
+	/* --pi */
 	if (!strcmp(&argv[*i][j], "pi")) {
+		/* --pi dirichlet */
 		if (!strcmp(argv[*i+1], "dir")) {
 			use_dirichlet = 1;
 			++(*i);
@@ -1616,14 +1676,19 @@ int process_arg_p(int argc, char const **argv, int *i, int j, options *opt)
 				fprint_doubles(stderr, opt->sim_pi,
 							opt->sim_K, 2, 1));
 		}
+	/* --p FLOAT */
 	} else if (access(argv[*i + 1], F_OK) == -1) {
 		opt->n_effective_coordinates = read_cmdline_double(argc, argv,
 			++(*i), (void *)opt);
 		debug_msg(MINIMAL <= fxn_debug, opt->quiet, "Read %f effective "
 					"coordinates from the command line.\n",
 						opt->n_effective_coordinates);
+
+	/* --partition FILE */
 	} else {
 		opt->pfile = argv[++(*i)];
+		debug_msg(MINIMAL <= fxn_debug, opt->quiet, "Partition file: "
+							"%s\n", opt->pfile);
 	}
 
 	return NO_ERROR;
@@ -1826,7 +1891,7 @@ int allocate_data(data *dat, unsigned int alloc_data)
 								 "data::data");
 	}
 
-	dat->cluster_id = malloc(dat->n_observations *
+	dat->cluster_id = calloc(dat->n_observations,
 						sizeof(*dat->cluster_id));
 
 	dat->best_cluster_id = malloc(dat->n_observations *
@@ -1900,7 +1965,7 @@ int read_data(data *dat, options *opt)
 {
 	int fxn_debug = ABSOLUTE_SILENCE;
 	int err = NO_ERROR;
-	unsigned int j = 0, i;
+	unsigned int j = 0, i, tK = 0;
 	char c, pc = 0;
 	FILE *fp = fopen(opt->datafile, "r");
 	data_t *dptr;
@@ -1954,10 +2019,15 @@ int read_data(data *dat, options *opt)
 	if (opt->true_column > dat->n_coordinates) {
 		unsigned int nc = dat->n_coordinates;
 		while (fscanf(fp, "%" KMODES_SCNu_data_t, dptr) == 1) {
-			if (opt->subtract_one)
-				-- (*dptr);
-			if (dat->n_categories[j] < *dptr + 1u)
-				dat->n_categories[j] = *dptr + 1u;
+			/* assumes default options::missing_value never legit */
+			if (opt->missing_value == *dptr) {
+				*dptr = KMODES_MISSING;
+			} else {
+				if (opt->subtract_one)
+					-- (*dptr);
+				if (dat->n_categories[j] < *dptr + 1u)
+					dat->n_categories[j] = *dptr + 1u;
+			}
 			++ dptr;
 			j = (j + 1u) % nc;
 		}
@@ -1965,14 +2035,19 @@ int read_data(data *dat, options *opt)
 		unsigned int nc = dat->n_coordinates + 1u;
 		i = 0;
 		while (fscanf(fp, "%" KMODES_SCNu_data_t, dptr) == 1) {
-			if (opt->subtract_one) -- (*dptr);
+			/* assumes both cluster id and data are 1-based */
+			if (opt->subtract_one)
+				-- (*dptr);
+			/* [TODO] no opportunity for missing cluster id */
 			if (j == opt->true_column) {
 				opt->true_cluster[i ++] = *dptr;
 				if (*dptr + 1u > opt->true_K)
 					opt->true_K = *dptr + 1u;
 			} else {
-				if (*dptr + 1u > dat->n_categories[j
-					- (j > opt->true_column)])
+				if (opt->missing_value == *dptr)
+					*dptr = KMODES_MISSING;
+				else if (*dptr + 1u > dat->n_categories[j -
+							(j > opt->true_column)])
 					dat->n_categories[j - (j
 						> opt->true_column)]
 						= *dptr + 1u;
@@ -1984,12 +2059,13 @@ int read_data(data *dat, options *opt)
 	fclose(fp);
 
 	/* true modes provided: read and set options:true_K to number
-	 * of unique modes
+	 * of unique modes or error if does not agree with modes counted
+	 * in data file
 	 */
 	if (opt->mfile && (err = read_modes(dat, opt)))
 		return err;
 
-	/* recount and reindex clusters if any are empty */
+	/* recount and reindex clusters if any are empty; corrects any modes */
 	if (opt->true_cluster && (err = drop_empty_clusters(dat, opt)))
 		return err;
 
@@ -2015,19 +2091,15 @@ int drop_empty_clusters(data *dat, options *opt)
 {
 	unsigned int nonempty_k = 0;
 
-	/* temporarily coopt data::cluster_id to identify used clusters */
-	for (unsigned int k = 0; k < opt->true_K; ++k)
-		dat->cluster_id[k] = k;
-
 	opt->true_cluster_size = calloc(opt->true_K,
 					sizeof(*opt->true_cluster_size));
 	if (!opt->true_cluster_size)
 		return mmessage(ERROR_MSG, MEMORY_ALLOCATION,
 						"options:true_cluster_size");
 
-	/* count cluster sizes using (not really new) indices */
+	/* count cluster sizes using indices */
 	for (unsigned int i = 0; i < dat->n_observations; ++i)
-		++opt->true_cluster_size[dat->cluster_id[opt->true_cluster[i]]];
+		++opt->true_cluster_size[opt->true_cluster[i]];
 
 	/* count clusters with members */
 	for (unsigned int k = 0; k < opt->true_K; ++k) {
@@ -2042,16 +2114,28 @@ int drop_empty_clusters(data *dat, options *opt)
 			else if (opt->true_modes)
 				opt->true_modes[nonempty_k] = opt->true_modes[k];
 			dat->cluster_id[k] = nonempty_k++;
+			mmessage(INFO_MSG, NO_ERROR, "Cluster %u has %u "
+				"members.\n", k, opt->true_cluster_size[k]);
 
 		/* empty cluster */
 		} else {
+			mmessage(WARNING_MSG, NO_ERROR, "Cluster %u is "
+								"empty.\n", k);
 			dat->cluster_id[k] = nonempty_k;
 		}
 	}
 	if (nonempty_k < opt->true_K) {
-		mmessage(WARNING_MSG, NO_ERROR, "True clusters containg %u "
-			"empty clusters.\n", opt->true_K - nonempty_k);
+		unsigned int *tc = realloc(opt->true_cluster_size,
+						nonempty_k * sizeof(*tc));
+
+		mmessage(WARNING_MSG, NO_ERROR, "True clusters have %u "
+			"empty cluster(s).\n", opt->true_K - nonempty_k);
 		opt->true_K = nonempty_k;
+
+		if (!tc)
+			return mmessage(ERROR_MSG, MEMORY_ALLOCATION,
+						"options::true_cluster_size");
+		opt->true_cluster_size = tc;
 		for (unsigned int i = 0; i < dat->n_coordinates; ++i)
 			opt->true_cluster[i] = dat->cluster_id[opt->true_cluster[i]];
 	}
@@ -2192,12 +2276,12 @@ int read_modes(data *dat, options *opt)
  */
 int fix_categories(data *dat, options *opt)
 {
-	unsigned int i, j;
+	unsigned int i, j, nwarnings = 0;
 
 	/* SLOW: should write an option to bypass it! */
 	for (j = 0; j < dat->n_coordinates; ++j) {
 		unsigned int *present = calloc(dat->n_categories[j],
-							sizeof *present);
+							sizeof(*present));
 		unsigned int cnt = 0;
 
 		if (!present)
@@ -2205,7 +2289,10 @@ int fix_categories(data *dat, options *opt)
 								"present");
 
 		for (i = 0; i < dat->n_observations; ++i)
-			++present[dat->data[dat->n_coordinates*i + j]];
+			if (dat->data[dat->n_coordinates*i + j]
+							!= KMODES_MISSING)
+				++present[dat->data[dat->n_coordinates*i + j]];
+
 		for (i = 0; i < dat->n_categories[j]; ++i) {
 			if (present[i]) ++cnt;
 			present[i] = (i ? present[i-1] : 0) + (present[i] == 0);
@@ -2214,21 +2301,29 @@ int fix_categories(data *dat, options *opt)
 			free(present);
 			continue;
 		}
-		mmessage(WARNING_MSG, NO_ERROR, "Coordinate %u uses only %u "
-			"of the 0 .. %u available categories.  To get correct "
-			"category counts (and speed up subsequent runs), use "
-			"double arguments to -f and maybe -m, and then run with"
-			" corrected files.\n", j, cnt, dat->n_categories[j]);
+		++nwarnings;
+		if (nwarnings < 10)
+			mmessage(WARNING_MSG, NO_ERROR, "Coordinate %u uses "
+				"only %u of the 0 .. %u available categories.  "
+				"To get correct category counts (and speed up "
+				"subsequent runs), use double arguments to -f "
+				"and maybe -m, and then run with corrected "
+				"files.\n", j, cnt, dat->n_categories[j]);
 		dat->n_categories[j] = cnt;
 		for (i = 0; i < dat->n_observations; ++i)
-			dat->data[dat->n_coordinates*i + j]
-				-= present[dat->data[dat->n_coordinates*i + j]];
-		if (opt->true_modes)
+			if (dat->data[dat->n_coordinates*i + j]
+							!= KMODES_MISSING)
+				dat->data[dat->n_coordinates*i + j]
+					-= present[dat->data[dat->n_coordinates*i + j]];
+		if (opt->true_modes)	/* assume no missing */
 			for (unsigned int k = 0; k < opt->true_K; ++k)
 				opt->true_modes[k][j]
 					-= present[opt->true_modes[k][j]];
 		free(present);
 	}
+	if (nwarnings >= 10)
+		mmessage(WARNING_MSG, NO_ERROR, "And %u more similar "
+					"warnings.\n", nwarnings - 10);
 	for (j = 0; j < dat->n_coordinates; ++j) {
 		dat->tot_n_categories += dat->n_categories[j];
 		if (dat->n_categories[j] > dat->max_n_categories)
@@ -3231,7 +3326,7 @@ int read_ini_data(char const *filename, unsigned int *of_vals, double *t_vals,
 				if (fscanf(fp, "%*f") != 0)
 					return mmessage(ERROR_MSG,
 						FILE_FORMAT_ERROR, "File '%s', "
-						"line %u.\n", filename, 
+						"line %u.\n", filename,
 								*nini - n_start);
 				char c = fgetc(fp);
 				while ((c = fgetc(fp)) && c != ' ' && !feof(fp));
@@ -3832,6 +3927,9 @@ void fprint_usage(FILE *fp, const char *cmdname, void *obj)
 		kmodes_fprintf(fp, ").\n");
 	kmodes_fprintf(fp, "\t-1\n\t\t"
 		"Subtract 1 from the observation categories (Default: %s).\n", opt->subtract_one ? "yes" : "no");
+	kmodes_fprintf(fp, "\t--missing INT\n\t\t"
+		"Which integer represents missing values in input file "
+				"(Default: %u).\n", opt->missing_value);
 	kmodes_fprintf(fp, "\t-m, --mode MFILE [MFILE2]\n\t\t"
 		"File with true modes.  Write modified modes to MFILE2 if\n\t\t"
 		"specified.\n");
@@ -3860,8 +3958,8 @@ void fprint_usage(FILE *fp, const char *cmdname, void *obj)
 		"Combine with -u to replicate klaR.\n", opt->kmodes_algorithm == KMODES_HUANG ? "yes" : "no");
 	kmodes_fprintf(fp, "\t--hartigan\n\t\tUse Hartigan updates with Huang's k-modes (Default: %s).\n\t\t"
 		"No effect without --h97.\n", opt->use_hartigan ? "yes" : "no");
-	kmodes_fprintf(fp, "\t--shuffle\n\t\t"
-		"Shuffle the observation order on each initialization (Default: %s).\n", opt->shuffle ? "yes" : "no");
+	kmodes_fprintf(fp, "\t--shuffle[ once]\n\t\t"
+		"Shuffle the observation order on each (optionally once) initialization (Default: %s %s).\n", opt->shuffle ? "yes" : "no", opt->shuffle_each ? "each" : "once");
 	kmodes_fprintf(fp, "\t-r, --random SEED1 SEED2\n\t\t"
 		"Set random number seeds (Default: %llu %llu).\n", opt->seed, opt->seed2);
 	kmodes_fprintf(fp, "\t--continue\n\t\tContinue previous run (Default: %s).\n", opt->continue_run ? "yes" : "no");
