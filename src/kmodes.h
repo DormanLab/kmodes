@@ -73,8 +73,11 @@ enum {
 	KMODES_INIT_USER_SEEDS,		/*!< user provides K seeds */
 	KMODES_INIT_H97,		/*!< Huang1997 */
 	KMODES_INIT_CLB09,		/*!< Cao2009 */
-	KMODES_INIT_NUMBER_METHODS,
-    KMODES_INIT_ABUNDANCE
+	KMODES_INIT_ABUNDANCE,
+	KMODES_INIT_TRUTH,		/*!< one of next 2: */
+	KMODES_INIT_TRUE_MODES,		/*!< true modes */
+	KMODES_INIT_TRUE_PARTITION,	/*!< true partition */
+	KMODES_INIT_NUMBER_METHODS
 };
 
 /**
