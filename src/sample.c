@@ -82,7 +82,7 @@ int heap_sample(unsigned int n, unsigned int k, double *w, unsigned int *idx, un
 			heap[i] = heap[2*i] + heap[2*i + 1];
 		}
 	}
-	
+
 	free(heap);
 	return NO_ERROR;
 } /* heap_sample */
@@ -178,7 +178,7 @@ void sample_vitter(unsigned int N, unsigned int n, unsigned int *idx)
 } /* sample */
 
 /**
- * Adjust sample_vitter() for ampliclust 
+ * Adjust sample_vitter() for ampliclust
  * Sample n from N without replacement.
  *
  * @return		error status
