@@ -21,6 +21,8 @@
 
 #include "cmdline.h"
 
+extern int has_argument(int, const char **, int);
+
 /**
  * Print error message, usage information, and return a failure code.
  *
