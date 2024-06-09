@@ -333,7 +333,7 @@ int initialize(data *dat, options *opt)
 				err = perturb(dat, opt);
  */
 			/* if data shuffled, don't rerandomize */
-			else if (opt->shuffle && opt->init_method
+			else if (opt->shuffle && opt->shuffle_each && opt->init_method
 				== KMODES_INIT_RANDOM_SEEDS)
 
 				kmodes_init_h97a(dat->dmat,
