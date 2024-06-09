@@ -51,6 +51,7 @@ struct _options {
 	double seconds;		/*<! number of seconds to initialize */
 	double target;		/*<! target minimum: best from prev. run */
 	int shuffle;		/*<! shuffle input order */
+	int shuffle_each;	/*<! shuffle each time */
 	int continue_run;	/*<! continue previous run */
 	int select_k;		/*<! select k */
 	int dm_method;		/*<! select K by DM method */

@@ -137,7 +137,9 @@ int run_kmodes(data *dat, options *opt)
 	for (unsigned int i = 0; i < opt->n_init; ++i) {
 
 		/* shuffle data to avoid input order artifacts */
-		if (opt->shuffle && opt->K > 1 && (err = shuffle_data(dat, opt)))
+		if (opt->shuffle && opt->K > 1 && (opt->shuffle_each ||
+					(!i && !opt->shuffle_each))
+					&& (err = shuffle_data(dat, opt)))
 			goto CLEAR_AND_EXIT;
 
 		/* initialization */
@@ -282,9 +284,35 @@ int initialize(data *dat, options *opt)
 	dat->use_ini = 0;
 	for (unsigned int j = 0; j < opt->n_inner_init; ++j) {
 
+		/* user provided indices of observations for modes */
+		if (opt->n_sd_idx) {	/* will only happen once */
+			for (unsigned int k = 0; k < opt->K; ++k) {
+				for (unsigned int j = 0; j < dat->n_coordinates;
+					++j)
+					seeds[k][j] =
+						dat->dmat[seed_idx[k]][j];
+				/* retaining: WHY DOES THIS NOT WORK???
+				 * because you need sizeof(), silly!
+				memcpy(dat->seeds[k],
+					dat->dmat[seed_idx[k]],
+					dat->n_coordinates * *dat->seeds[k]);
+				*/
+			}
+
+		/* user provided a partition file */
+		} else if (opt->pfile
+			|| opt->init_method == KMODES_INIT_TRUE_PARTITION) {	/* will only happen once */
+			kmodes_init_from_partition(dat->dmat,
+				dat->n_observations, dat->n_coordinates, opt->K,
+				opt->weight, seeds, dat->cluster_id);
+
 		/* modes not provided by user */
-		if (!opt->n_sd_idx && !opt->pfile
-			&& opt->init_method != KMODES_INIT_TRUE_PARTITION) {
+		} else if (opt->init_method == KMODES_INIT_TRUE_MODES) {
+			for (unsigned int k = 0; k < opt->K; ++k)
+				memcpy(dat->seeds[k],
+					opt->true_modes[k], dat->n_coordinates
+							* sizeof(**dat->seeds));
+		} else {
 
 			if (opt->init_method
 				== KMODES_INIT_RANDOM_FROM_PARTITION)
@@ -317,28 +345,6 @@ int initialize(data *dat, options *opt)
 					opt->n_seed_set,
 					seeds, seed_idx,
 					opt->init_method, opt->weight);
-
-		/* user provided indices of observations for modes */
-		} else if (opt->n_sd_idx) {	/* will only happen once */
-			for (unsigned int k = 0; k < opt->K; ++k) {
-				for (unsigned int j = 0; j < dat->n_coordinates;
-					++j)
-					seeds[k][j] =
-						dat->dmat[seed_idx[k]][j];
-				/* retaining: WHY DOES THIS NOT WORK???
-				 * because you need sizeof(), silly!
-				memcpy(dat->seeds[k],
-					dat->dmat[seed_idx[k]],
-					dat->n_coordinates * *dat->seeds[k]);
-				*/
-			}
-
-		/* user provided a partition file */
-		} else if (opt->pfile
-			|| opt->init_method == KMODES_INIT_TRUE_PARTITION) {	/* will only happen once */
-			kmodes_init_from_partition(dat->dmat,
-				dat->n_observations, dat->n_coordinates, opt->K,
-				opt->weight, seeds, dat->cluster_id);
 		}
 
 		if (opt->n_inner_init > 1) {
@@ -1000,6 +1006,7 @@ int make_options(options **opt) {
 	(*opt)->info = QUIET;
 	(*opt)->subtract_one = 0;
 	(*opt)->shuffle = 0;
+	(*opt)->shuffle_each = 1;
 	(*opt)->kmodes_algorithm = KMODES_HUANG;
 	(*opt)->init_method = KMODES_INIT_RANDOM_SEEDS;
 	(*opt)->perturb_selection = KMODES_PERTURB_HD;
@@ -1450,9 +1457,13 @@ int parse_options(options *opt, int argc, const char **argv)
 			/* no appropriate arguments */
 			if (!strcmp(&argv[i][j], "shuffle")) {
 				opt->shuffle = 1;
+				if (has_argument(argc, argv, i)
+					&& !strcmp(argv[++i], "once"))
+					opt->shuffle_each = 0;
 				debug_msg(MINIMAL <= opt->quiet,
 					opt->quiet, "Data will be "
-					"shuffled.\n");
+					"shuffled%s.\n", opt->shuffle_each
+					? " every initialization" : " once");
 				break;
 			}
 			if (i + 5 >= argc || argv[i + 1][0] == '-') {
@@ -3139,8 +3150,12 @@ void write_best_solution(data *dat, options *opt, FILE *fps)		/**/
 					unsigned int cnt = 0;
 					for (unsigned int j = 0; j
 						< dat->n_coordinates; ++j)
-						cnt += (dat->best_modes[i][j]
-							!= opt->true_modes[k][j]);
+						if (dat->best_modes[i][k]
+							!= KMODES_MISSING
+							&& opt->true_modes[k][j]
+							!= KMODES_MISSING)
+							cnt += (dat->best_modes[i][j]
+								!= opt->true_modes[k][j]);
 					if (opt->quiet >= QUIET)
 						printf(" %*u", (int)
 							ceil(log10(dat->n_coordinates + 1)),
