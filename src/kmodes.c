@@ -2076,6 +2076,7 @@ int kmodes_init(data_t **x, unsigned int n, unsigned int p, unsigned int k,
 	unsigned int k1, data_t **seeds, unsigned int *sidx, int method,
 	int weight)
 {
+
 	if (method == KMODES_INIT_RANDOM_SEEDS) {
 		return kmodes_init_random_seeds(x, n, p, k, k1, seeds, sidx);
 	} else if (method == KMODES_INIT_H97) {
@@ -2330,9 +2331,12 @@ int kmodes_init_random_seeds(data_t **x, unsigned int n, unsigned int p, unsigne
 		return mmessage(ERROR_MSG, INVALID_USER_INPUT,
 			"Requesting %u clusters with only %u reads.\n", K, n);
 
+	/* allocate category counts: last arg force __njc */
+	if (!allocate_and_compute_category_counts(x, n, p, K, 1))
+		return mmessage(ERROR_MSG, MEMORY_ALLOCATION, "__nj");
+
 	if (!sd_idx) {
 		sidx = malloc(K * sizeof(*sidx));
-
 		if (!sidx)
 			return mmessage(ERROR_MSG, MEMORY_ALLOCATION,
 				"seed index");
@@ -2871,8 +2875,9 @@ kmodes_init_av07(data_t **x, unsigned int n, unsigned int p, unsigned int K,
 int compare_data(data_t **x, unsigned int i, unsigned int j, unsigned int n)
 {
 	for (unsigned int l = 0; l < n; ++l) {
+
 		if (x[i][l] == KMODES_MISSING
-			|| x[j][j] == KMODES_MISSING)
+			|| x[j][l] == KMODES_MISSING)
 			continue;
 		if (x[i][l] > x[j][l])
 			return 1;
