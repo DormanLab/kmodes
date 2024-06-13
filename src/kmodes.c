@@ -2976,7 +2976,9 @@ size_t allocate_and_compute_nj(data_t **x, unsigned int n, unsigned int p)
  * @param ncat	total number of categories across coordinates
  * @return	error status
  */
-int allocate_and_compute_njc(data_t **x, unsigned int n, unsigned int p, size_t ncat) {
+int allocate_and_compute_njc(data_t **x, unsigned int n, unsigned int p,
+								size_t ncat)
+{
 	if (!__nj)
 		return mmessage(ERROR_MSG, INTERNAL_ERROR, "__nj needs to be "
 			"allocated before allocating __njc");
