@@ -2125,6 +2125,13 @@ int read_data(data *dat, options *opt)
 	if (opt->true_cluster && (err = drop_empty_clusters(dat, opt)))
 		return err;
 
+	if (opt->init_method == KMODES_INIT_TRUE_PARTITION
+						&& opt->true_K != opt->K)
+		return mmessage(ERROR_MSG, INTERNAL_ERROR, "The true partition,"
+			" from which you asked to initialize, has %u non-empty "
+			"clusters, but you asked for K=%u clusters.\n",
+							opt->true_K, opt->K);
+
 	/* fix assumption of 0, 1, 2, ... categories; reset category counts */
 	err = fix_categories(dat, opt);
 
