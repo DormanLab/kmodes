@@ -5,6 +5,7 @@
 #include <limits.h>
 
 #include "sample.h"
+#include "rmath/rmath.h"
 #include "error.h"
 
 void sample(unsigned int N, unsigned int n, unsigned int *idx)
