@@ -29,6 +29,7 @@
  */
 
 #include <math.h>
+#include "rmath.h"
 
 double rexp(double scale)
 {

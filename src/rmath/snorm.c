@@ -33,6 +33,7 @@
 #include <math.h>
 #include <float.h>
 #include "Random.h"
+#include "rmath.h"
 
 #define repeat for(;;)
 
