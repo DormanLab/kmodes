@@ -49,6 +49,7 @@
  */
 
 #include <math.h>
+#include "rmath.h"
 
 #define repeat for(;;)
 
