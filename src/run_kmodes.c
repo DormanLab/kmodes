@@ -8,14 +8,15 @@
 #include <limits.h>
 #include <time.h>
 #include <unistd.h>
+#include <math.h>
 
-#include <Rmath.h>
 #ifndef MATHLIB_STANDALONE
 #include <R.h>
 #else
 #include "cmdline.h"
 #include "io.h"
 #include "io_kmodes.h"
+#include "rmath/rmath.h"
 #endif
 
 //#define USE_CURSES

@@ -1,7 +1,7 @@
 //#define DEBUGGING_CODE
 
-#include <Rmath.h>
 #include <limits.h>
+#include <math.h>
 #ifdef DEBUGGING_CODE
 #include <stdio.h>
 #endif
@@ -12,6 +12,7 @@
 #include "order.h"
 #include "hash.h"
 #include "sample.h"
+#include "rmath/rmath.h"
 
 static inline double hd(data_t *x, data_t *y, unsigned int p);
 static int perturb_by_hd(data *dat, unsigned int K, unsigned int k1, data_t **seeds, unsigned int *sd_idx);

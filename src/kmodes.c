@@ -23,7 +23,7 @@
  */
 
 #include <string.h>
-#include <Rmath.h>
+#include <math.h>
 
 //#define __KMODES_DEBUGGING__
 
@@ -33,6 +33,7 @@
 #include "error.h"
 #include "sample.h"
 #include "math.h"
+#include "rmath/rmath.h"
 #ifdef __KMODES_DEBUGGING__
 #include "io_kmodes.h"
 #endif
