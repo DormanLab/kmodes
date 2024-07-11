@@ -34,6 +34,8 @@
  *    Comm. ACM, 15, 873-882.
  */
 
+#include "rmath.h"
+
 double exp_rand(void)
 {
     /* q[k-1] = sum(log(2)^k / k!)  k=1,..,n, */
