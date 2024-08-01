@@ -25,6 +25,7 @@ enum {
 	KMODES_CALLER_INPUT_ERROR,	/*!< invalid caller input */
 	KMODES_MEMORY_ERROR,		/*!< memory allocation error */
 	KMODES_INVALID_INITIALIZATION_METHOD,
+	KMODES_EQUAL_MODES,		/*!< user provided equal modes */
 	KMODES_INTERNAL_ERROR,
 	KMODES_NUMBER_ERRORS		/*!< total number of kmodes error codes */
 };
