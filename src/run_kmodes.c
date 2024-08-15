@@ -1147,18 +1147,24 @@ int parse_options(options *opt, int argc, const char **argv)
 			if (!strncmp(&argv[i][j], "cont", 4)) {
 				opt->continue_run = 1;
 				break;
-			} else if (i + 1 == argc)
+			} else if (i + 1 == argc) {
+				err = INVALID_CMD_PARAMETER;
 				goto CMDLINE_ERROR;
+			}
 			opt->true_column = read_uint(argc, argv, ++i, (void *)opt);
-			if (errno)
+			if (errno) {
+				err = INVALID_CMD_PARAMETER;
 				goto CMDLINE_ERROR;
+			}
 			debug_msg(MINIMAL <= fxn_debug, opt->quiet,
 				"true column = %u\n", opt->true_column);
 			break;
 		case 'K':
 		case 'k':
-			if (i + 1 == argc)
+			if (i + 1 == argc) {
+				err = INVALID_CMD_PARAMETER;
 				goto CMDLINE_ERROR;
+			}
 			if (strlen(&argv[i][j]) > 1) {
 				unsigned int k = strtoul(&argv[i][j+1],
 					NULL, 0);
@@ -1171,20 +1177,24 @@ int parse_options(options *opt, int argc, const char **argv)
 			} else {
 				opt->K = read_uint(argc, argv, ++i,
 					(void *)opt);
-				if (errno)
+				if (errno) {
+					err = INVALID_CMD_PARAMETER;
 					goto CMDLINE_ERROR;
+				}
 				debug_msg(MINIMAL <= fxn_debug,
 					opt->quiet, "K = %u.\n", opt->K);
 			}
 			break;
 		case 'l':
 			opt->kmodes_algorithm = KMODES_LLOYD;
-			debug_msg(QUIET <= fxn_debug, opt->quiet,
+			debug_msg(MINIMAL <= opt->quiet, opt->quiet,
 				"Using Lloyd's algorithm.\n");
 			break;
 		case 'm':
-			if (i + 1 == argc)
+			if (i + 1 == argc) {
+				err = INVALID_CMD_PARAMETER;
 				goto CMDLINE_ERROR;
+			}
 			opt->mfile = argv[++i];
 			if (access(opt->mfile, F_OK) == -1) {
 				opt->mfile = NULL;
@@ -1196,39 +1206,45 @@ int parse_options(options *opt, int argc, const char **argv)
 			break;
 		case 'w':
 			opt->kmodes_algorithm = KMODES_HARTIGAN_WONG;
-			debug_msg(QUIET <= fxn_debug, opt->quiet,
+			debug_msg(MINIMAL <= opt->quiet, opt->quiet,
 				"Using Hartigan and Wong algorithm.\n");
 			break;
 		case 'f':
-			if (i + 1 == argc)
+			if (i + 1 == argc) {
+				err = INVALID_CMD_PARAMETER;
 				goto CMDLINE_ERROR;
+			}
 			opt->datafile = argv[++i];
 			if (i + 1 < argc && argv[i+1][0] != '-') {
 				opt->data_outfile = argv[++i];
-				debug_msg(QUIET <= fxn_debug, opt->quiet,
+				debug_msg(MINIMAL <= opt->quiet, opt->quiet,
 					"Will write data, after possible "
 					"adjustments, to file = %s\n",
 					opt->data_outfile);
 			}
-			debug_msg(QUIET <= fxn_debug, opt->quiet,
+			debug_msg(MINIMAL <= opt->quiet, opt->quiet,
 				"Data file = %s\n", opt->datafile);
 			break;
 		case 'o':
-			if (i + 1 == argc)
+			if (i + 1 == argc) {
+				err = INVALID_CMD_PARAMETER;
 				goto CMDLINE_ERROR;
+			}
 			opt->soln_file = argv[++i];
-			debug_msg(QUIET <= opt->quiet, opt->quiet,
+			debug_msg(MINIMAL <= opt->quiet, opt->quiet,
 				"Solution file = %s\n", opt->soln_file);
 			if (i + 1 < argc && argv[i+1][0] != '-') {
 				opt->ini_file = argv[++i];
-				debug_msg(QUIET <= opt->quiet, opt->quiet,
+				debug_msg(MINIMAL <= opt->quiet, opt->quiet,
 					"Initialization file = %s\n",
 							opt->ini_file);
 			}
 			break;
 		case 'i':
-			if (i + 1 == argc || argv[i + 1][0] == '-')
+			if (i + 1 == argc || argv[i + 1][0] == '-') {
+				err = INVALID_CMD_PARAMETER;
 				goto CMDLINE_ERROR;
+			}
 			if (!strcmp(argv[i+1], "rnd"))
 				opt->init_method = KMODES_INIT_RANDOM_SEEDS;
 			else if (!strcmp(argv[i+1], "h97"))
@@ -1252,11 +1268,15 @@ int parse_options(options *opt, int argc, const char **argv)
 			else if (!strcmp(argv[i+1], "mskabun")) {
 				opt->init_method = KMODES_INIT_ABUNDANCE;
 				++i;
-				if (i + 1 == argc || argv[i + 1][0] == '-')
+				if (i + 1 == argc || argv[i + 1][0] == '-') {
+					err = INVALID_CMD_PARAMETER;
 					goto CMDLINE_ERROR;
+				}
 				opt->abunk = read_uint(argc, argv, i + 1, (void *)opt);
-				if (errno)
+				if (errno) {
+					err = INVALID_CMD_PARAMETER;
 					goto CMDLINE_ERROR;
+				}
 				if (opt->quiet > QUIET)
 					mmessage(INFO_MSG, NO_ERROR, "Desired "
 						"number of masked abundances "
@@ -1265,8 +1285,10 @@ int parse_options(options *opt, int argc, const char **argv)
 					++i;
 					opt->resample_sites = read_uint(argc,
 						argv, i + 1, (void *)opt);
-					if (errno)
+					if (errno) {
+						err = INVALID_CMD_PARAMETER;
 						goto CMDLINE_ERROR;
+					}
 					if (opt->quiet > QUIET)
 						mmessage(INFO_MSG, NO_ERROR,
 							"Number initializations"
@@ -1283,11 +1305,13 @@ int parse_options(options *opt, int argc, const char **argv)
 				opt->n_sd_idx = read_cmdline_uints(argc,
 					argv, ++i, &opt->seed_idx,
 					(void *)opt);
-				if (errno || !opt->n_sd_idx)
+				if (errno || !opt->n_sd_idx) {
+					err = INVALID_CMD_PARAMETER;
 					goto CMDLINE_ERROR;
-				debug_msg(MINIMAL <= fxn_debug,
+				}
+				debug_msg(MINIMAL <= opt->quiet,
 					opt->quiet, "Seed indices:");
-				debug_call(MINIMAL <= fxn_debug,
+				debug_call(MINIMAL <= opt->quiet,
 					opt->quiet, fprint_uints(stderr,
 					opt->seed_idx, opt->n_sd_idx,
 					1, 1));
@@ -1298,14 +1322,16 @@ int parse_options(options *opt, int argc, const char **argv)
 				opt->sfile = argv[i+1];
 				//opt->init_method = KMODES_INIT_RANDOM_FROM_SET;
 			}
-			debug_msg(QUIET <= fxn_debug, opt->quiet,
+			debug_msg(MINIMAL <= opt->quiet, opt->quiet,
 				"Using %s initialization.\n",
 				kmodes_init_method(opt->init_method));
 			++i;
 			break;
 		case 'n':
-			if (i + 1 == argc)
+			if (i + 1 == argc) {
+				err = INVALID_CMD_PARAMETER;
 				goto CMDLINE_ERROR;
+			}
 			if (isdigit((unsigned char) argv[i][j+1])) {
 				unsigned int k = strtoul(&argv[i][j+1],
 					NULL, 0);
@@ -1319,9 +1345,11 @@ int parse_options(options *opt, int argc, const char **argv)
 			} else {
 				opt->n_init = read_uint(argc, argv, ++i,
 					(void *)opt);
-				if (errno)
+				if (errno) {
+					err = INVALID_CMD_PARAMETER;
 					goto CMDLINE_ERROR;
-				debug_msg(MINIMAL <= fxn_debug, opt->quiet,
+				}
+				debug_msg(MINIMAL <= opt->quiet, opt->quiet,
 					"Initializations = %u\n", opt->n_init);
 			}
 			break;
@@ -1331,16 +1359,17 @@ int parse_options(options *opt, int argc, const char **argv)
 		case 'p':
 			if (!strcmp(&argv[i][j], "perturb")) {
 				opt->n_perturb = 1;
-				debug_msg(MINIMAL, opt->quiet, "Will "
-					"\"perturb\" %u seeds rather "
+				debug_msg(MINIMAL <= opt->quiet, opt->quiet,
+					"Will \"perturb\" %u seeds rather "
 					"than re-initialize.\n",
 					opt->n_perturb);
 				if (i + 1 < argc && argv[i + 1][0] != '-') {
 					opt->inner_perturb = read_uint(argc,
 							argv, ++i, (void *)opt);
-					debug_msg(MINIMAL, opt->quiet, "Using "
-						"%u perturbations per initializ"
-						"ation.\n", opt->inner_perturb);
+					debug_msg(MINIMAL <= opt->quiet,
+						opt->quiet, "Using %u "
+						"perturbations per initializat"
+						"ion.\n", opt->inner_perturb);
 				}
 			} else {
 				if (i + 1 == argc || (err =
@@ -1355,16 +1384,19 @@ int parse_options(options *opt, int argc, const char **argv)
 			}
 			opt->inner_perturb = read_uint(argc, argv, ++i,
 								(void *)opt);
-			debug_msg(MINIMAL, opt->quiet, "Using %u perturbations "
-				"per initialization.\n", opt->inner_perturb);
+			debug_msg(MINIMAL <= opt->quiet, opt->quiet, "Using %u "
+					"perturbations per initialization.\n",
+							opt->inner_perturb);
 			break;
 		case 'r':
-			if (i + 1 == argc)
+			if (i + 1 == argc) {
+				err = INVALID_CMD_PARAMETER;
 				goto CMDLINE_ERROR;
+			}
 			if (!strncmp(&argv[i][j], "run", 3)) {
 				opt->n_inner_init = read_uint(argc,
 					argv, ++i, (void *)opt);
-				debug_msg(MINIMAL <= fxn_debug,
+				debug_msg(MINIMAL <= opt->quiet,
 					opt->quiet, "Inner "
 					"initializations; %u\n",
 					opt->n_inner_init);
@@ -1374,24 +1406,28 @@ int parse_options(options *opt, int argc, const char **argv)
 				if (i + 1 < argc && argv[i+1][0] != '-')
 					opt->seed2 = read_ulonglong(argc, argv,
 							++i, (void *)opt);
-				debug_msg(MINIMAL <= fxn_debug,
+				debug_msg(MINIMAL <= opt->quiet,
 					opt->quiet, "Seed(s): "
 					"%llu %llu\n", opt->seed, opt->seed2);
 			}
-			if (errno)
+			if (errno) {
+				err = INVALID_CMD_PARAMETER;
 				goto CMDLINE_ERROR;
+			}
 			break;
 		case 's':	/*-s <sn> <sp> <sc> <st1> <st2>*/
 			/* no appropriate arguments */
 			if (!strcmp(&argv[i][j], "shuffle")) {
 				opt->shuffle = 1;
-				debug_msg(MINIMAL <= fxn_debug,
+				debug_msg(MINIMAL <= opt->quiet,
 					opt->quiet, "Data will be "
 					"shuffled.\n");
 				break;
 			}
-			if (i + 5 >= argc || argv[i + 1][0] == '-')
+			if (i + 5 >= argc || argv[i + 1][0] == '-') {
+				err = INVALID_CMD_PARAMETER;
 				goto CMDLINE_ERROR;
+			}
 			opt->simulate = 1;
 			opt->sim_n_observations = read_ulong(argc, argv,
 				++i, (void *)opt);
@@ -1403,18 +1439,21 @@ int parse_options(options *opt, int argc, const char **argv)
 				argv, ++i, (void *)opt);
 			opt->sim_within_t = read_cmdline_double(argc,
 				argv, ++i, (void *)opt);
-			if (errno)
+			if (errno) {
+				err = INVALID_CMD_PARAMETER;
 				goto CMDLINE_ERROR;
+			}
 			if (tst > pow(2, 8*sizeof(data_t))) {
-				mmessage(ERROR_MSG, INVALID_USER_INPUT,
+				err = mmessage(ERROR_MSG, INVALID_USER_INPUT,
 					"Cannot simulate data in more "
 					"than %u categories.\n",
 					(unsigned int) pow(2,
 					8*sizeof(data_t)));
 				goto CMDLINE_ERROR;
-			} else
+			} else {
 				opt->sim_n_categories = tst;
-			debug_msg(MINIMAL <= fxn_debug, opt->quiet,
+			}
+			debug_msg(MINIMAL <= opt->quiet, opt->quiet,
 				"Simulation:\n\t%u observations\n\t%u "
 				"coordinates\n\t%u categories\n\t%f "
 				"between time\n\t%f within "
@@ -1427,12 +1466,12 @@ int parse_options(options *opt, int argc, const char **argv)
 		case 't':
 			opt->seconds = read_cmdline_double(argc, argv,
 				++i, (void *)opt);
-			debug_msg(QUIET <= fxn_debug, opt->quiet,
+			debug_msg(MINIMAL <= opt->quiet, opt->quiet,
 				"Running for %.0fs.\n", opt->seconds);
 			break;
 		case 'u':
 			opt->update_modes = 1;
-			debug_msg(MINIMAL <= fxn_debug, opt->quiet,
+			debug_msg(MINIMAL <= opt->quiet, opt->quiet,
 				"Update modes during first iteration: on\n");
 			break;
 		case 'q':
@@ -1448,12 +1487,12 @@ int parse_options(options *opt, int argc, const char **argv)
 		case 'h':
 			if (!strcmp(&argv[i][j], "h97")) {
 				opt->kmodes_algorithm = KMODES_HUANG;
-				debug_msg(QUIET <= fxn_debug, opt->quiet,//
+				debug_msg(MINIMAL <= opt->quiet, opt->quiet,
 					"Using Huang's algorithm.\n");
 			} else if (!strncmp(&argv[i][j], "hart",
 						strlen("hart"))) {
 				opt->use_hartigan = 1;
-				debug_msg(QUIET <= fxn_debug, opt->quiet,
+				debug_msg(MINIMAL <= opt->quiet, opt->quiet,
 					"Use Hartigan's update with "
 						"Huang's algorithm.\n");
 			} else {
@@ -1590,7 +1629,7 @@ int process_arg_p(int argc, char const **argv, int *i, int j, options *opt)
 				*i + 1, &opt->sim_pi, (void *)opt);
 			if (errno)
 				return INVALID_CMD_PARAMETER;
-			debug_msg(MINIMAL <= fxn_debug, opt->quiet,
+			debug_msg(MINIMAL <= opt->quiet, opt->quiet,
 					"Simulation K = %u\n", opt->sim_K);
 		}
 		(*i) += opt->sim_K;
@@ -1602,9 +1641,9 @@ int process_arg_p(int argc, char const **argv, int *i, int j, options *opt)
 					"options::sim_alpha"));
 			memcpy(opt->sim_alpha, opt->sim_pi, opt->sim_K
 				* sizeof(*opt->sim_pi));
-			debug_msg(MINIMAL <= fxn_debug, opt->quiet,
+			debug_msg(MINIMAL <= opt->quiet, opt->quiet,
 							"Simulation alpha:");
-			debug_call(MINIMAL <= fxn_debug, opt->quiet,
+			debug_call(MINIMAL <= opt->quiet, opt->quiet,
 				fprint_doubles(stderr, opt->sim_alpha,
 							opt->sim_K, 2, 1));
 		} else {
@@ -1616,16 +1655,16 @@ int process_arg_p(int argc, char const **argv, int *i, int j, options *opt)
 					"-pi <pdbl1> ... <pdblK> arguments must"
 					" sum to 1.0.\n");
 			opt->sim_pi[0] = 1 - sum;
-			debug_msg(MINIMAL <= fxn_debug, opt->quiet,
+			debug_msg(MINIMAL <= opt->quiet, opt->quiet,
 							"Simulation pi:");
-			debug_call(MINIMAL <= fxn_debug, opt->quiet,
+			debug_call(MINIMAL <= opt->quiet, opt->quiet,
 				fprint_doubles(stderr, opt->sim_pi,
 							opt->sim_K, 2, 1));
 		}
 	} else if (access(argv[*i + 1], F_OK) == -1) {
 		opt->n_effective_coordinates = read_cmdline_double(argc, argv,
 			++(*i), (void *)opt);
-		debug_msg(MINIMAL <= fxn_debug, opt->quiet, "Read %f effective "
+		debug_msg(MINIMAL <= opt->quiet, opt->quiet, "Read %f effective "
 					"coordinates from the command line.\n",
 						opt->n_effective_coordinates);
 	} else {
@@ -2465,7 +2504,7 @@ int simulate_data(data *dat, options *opt)
 				opt->sim_pi[k] /= sum;
 			debug_msg(QUIET <= fxn_debug, opt->quiet, "Simulated "
 									"pi: ");
-			debug_call(QUIET <= opt->quiet, opt->quiet,
+			debug_call(QUIET <= fxn_debug, opt->quiet,
 				fprint_doubles(stderr, opt->sim_pi, opt->sim_K,
 								3, 1));
 		}
@@ -2953,8 +2992,13 @@ void write_best_solution(data *dat, options *opt, FILE *fps)		/**/
 			fprintf(fps, "Best solution originating seeds:");
 			fprint_uints(fps, dat->best_seed_idx, opt->K, 0, 1);
 		}
-		if (fps && opt->K > 0) {
+		if (opt->quiet >= QUIET && fps && opt->K > 0) {
 			printf("Best solution cluster assignments:\n");
+			fprint_uints(stdout, dat->best_cluster_id,
+				dat->n_observations, 0, 1);
+		}
+		if (fps && opt->K > 0) {
+			fprintf(fps, "Best solution cluster assignments:\n");
 			fprint_uints(fps, dat->best_cluster_id,
 				dat->n_observations, 0, 1);
 		}
