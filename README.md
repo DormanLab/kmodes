@@ -92,7 +92,7 @@ Parameters 8.1 and 2.0 determine the amount of 'time' separating the modes and t
 The simulated data are written to file `sim.txt`, **with the true cluster membership of each observation in the first column**, and the simulation settings to `sim.out`.
 We set the random seed to 123 and do not actually run k-modes (`-n 0` means 0 initializations).
 
-```
+```sh
 ./run_kmodes --simulate 100 50 4 8.1 2.0 --pi 0.10 0.20 0.25 0.45 -f sim.txt -o sim.out -r 123 -n 0
 ```
 
@@ -100,21 +100,21 @@ We set the random seed to 123 and do not actually run k-modes (`-n 0` means 0 in
 We ask for 100 randomly initializations and set the random number seed to 321.
 We inform ```run_kmodes``` that the true cluster memberships are given in the first column (```-c 0```), and this information will be used to compute quantities like the adjusted RAND index.
 
-```
+```sh
 ./run_kmodes -f sim.txt -o sim.hw.out -k 4 -w -n 100 -i rnd -r 321 -c 0
 ```
 
 3. Repeat using Huang's (1997) algorithm, which is the default.  Notice, we are using the exact same random initializations, since we set an identical seed.
 
-```
+```sh
 ./run_kmodes -f sim.txt -o sim.h97.out -k 4 -n 100 -i rnd -r 321 -c 0
 ```
 
 4. Compare of the last line of output on my system shows:
-```
+```sh
 tail -n 1 sim.h*.out
 ```
-```sh
+```
 ==> sim.h97.out <==
 1843 3.290000 0.093054 1887.360000 8.116644 0.916890 0.014290 0.929269 0.011482 0.102328 0.016519 0.410692 100
 ==> sim.hw.out <==
