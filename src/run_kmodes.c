@@ -17,6 +17,7 @@
 #include "io.h"
 #include "io_kmodes.h"
 #include "rmath/rmath.h"
+#include "rmath/Random.h"
 #endif
 
 //#define USE_CURSES
@@ -1061,7 +1062,7 @@ int make_options(options **opt) {
 #ifdef MATHLIB_STANDALONE
 int parse_options(options *opt, int argc, const char **argv)
 {
-	int fxn_debug = ABSOLUTE_SILENCE;
+	int fxn_debug = ABSOLUTE_SILENCE;//DEBUG_I;//
 	int i, j;
 	int err = NO_ERROR;
 	char a;
@@ -1130,8 +1131,11 @@ int parse_options(options *opt, int argc, const char **argv)
 	}
 
 	for (i = 1; i < argc; i++) {
-		if (strlen(argv[i]) < 2)
-			usage_error(argv, i, (void *)opt);
+		debug_msg(fxn_debug, 0, "Parsing argument '%s'.\n", argv[i]);
+		if (strlen(argv[i]) < 2) {
+			err = INVALID_CMD_OPTION;
+			goto CMDLINE_ERROR;
+		}
 		j = 1;
 		a = argv[i][j];
 		while (a == '-' && ++j < (int) strlen(argv[i]))
@@ -1345,8 +1349,10 @@ int parse_options(options *opt, int argc, const char **argv)
 			}
 			break;
 		case 'a':	/* deprecated: here so doesn't break for Yudi */
-			if (i + 1 == argc)
+			if (i + 1 == argc) {
+				err = INVALID_CMD_PARAMETER;
 				goto CMDLINE_ERROR;
+			}
 			opt->inner_perturb = read_uint(argc, argv, ++i,
 								(void *)opt);
 			debug_msg(MINIMAL, opt->quiet, "Using %u perturbations "
@@ -1538,18 +1544,17 @@ int parse_options(options *opt, int argc, const char **argv)
 				"clusters to estimate to K=%u\n", opt->K);
 	}
 
-	if (!opt->datafile) {
+	if (!opt->datafile)
 		return mmessage(ERROR_MSG, INVALID_USER_INPUT, "You must "
 			"provide the name of a data file:  See option -f.\n");
-	}
 
-	set_seed(opt->seed, opt->seed2);
+	RNG_Init_MT(opt->seed);
 
 	return err;
 
 CMDLINE_ERROR:
 	if (err == NO_ERROR) {
-		err = INVALID_CMD_ARGUMENT;
+		err = INVALID_CMD_PARAMETER;
 		i--;
 	}
 	usage_error(argv, i, (void *)opt);
@@ -1579,12 +1584,12 @@ int process_arg_p(int argc, char const **argv, int *i, int j, options *opt)
 		}
 		if (opt->sim_K && (opt->sim_K != read_cmdline_doubles(argc,
 			argv, *i + 1, &opt->sim_pi, (void *)opt) || errno)) {
-			return INVALID_CMD_OPTION;
+			return INVALID_CMD_PARAMETER;
 		} else {
 			opt->sim_K = read_cmdline_doubles(argc, argv,
 				*i + 1, &opt->sim_pi, (void *)opt);
 			if (errno)
-				return INVALID_CMD_OPTION;
+				return INVALID_CMD_PARAMETER;
 			debug_msg(MINIMAL <= fxn_debug, opt->quiet,
 					"Simulation K = %u\n", opt->sim_K);
 		}
@@ -1609,7 +1614,7 @@ int process_arg_p(int argc, char const **argv, int *i, int j, options *opt)
 			if (sum >= 1.)
 				return mmessage(ERROR_MSG, INVALID_USER_INPUT,
 					"-pi <pdbl1> ... <pdblK> arguments must"
-					"sum to 1.0.\n");
+					" sum to 1.0.\n");
 			opt->sim_pi[0] = 1 - sum;
 			debug_msg(MINIMAL <= fxn_debug, opt->quiet,
 							"Simulation pi:");
@@ -2439,7 +2444,7 @@ int simulate_data(data *dat, options *opt)
 	do {
 		/* simulate pi */
 		if (opt->sim_alpha) {
-			/* this is the only place the R rng is used */
+			/* R rng used here */
 			double sum = 0;
 
 			for (k = 0; k < opt->sim_K; ++k) {
@@ -3034,9 +3039,9 @@ void write_best_solution(data *dat, options *opt, FILE *fps)		/**/
 		if (fps)
 			fprintf(fps, " %f", dat->seconds);
 		if (opt->quiet > ABSOLUTE_SILENCE)
-			printf(" %u", dat->n_init);
+			printf(" %u\n", dat->n_init);
 		if (fps)
-			fprintf(fps, " %u", dat->n_init);
+			fprintf(fps, " %u\n", dat->n_init);
 	}
 } /* write_best_solution */
 
