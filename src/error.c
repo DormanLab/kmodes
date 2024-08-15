@@ -103,12 +103,12 @@ int vmessage(FILE *fp, const char *file_name, const char *fxn_name, int line,
 				kmodes_printf("\n");
 			}
 			break;
-		case INVALID_CMD_ARGUMENT:
+		case INVALID_CMD_PARAMETER:
 			if (fp)
-				kmodes_fprintf(fp, "invalid argument to "
+				kmodes_fprintf(fp, "invalid parameter to "
 							"command option");
 			else
-				kmodes_printf("invalid argument to "
+				kmodes_printf("invalid parameter to "
 							"command option");
 			if (msg && fp) {
 				kmodes_fprintf(fp, ": ");
@@ -305,8 +305,8 @@ int wmessage(WINDOW *wp, const char *file_name, const char *fxn_name, int line,
 				} else
 					wprintw(wp, "\n");
 				break;
-			case INVALID_CMD_ARGUMENT:
-				wprintw(wp, "invalid argument to command option");
+			case INVALID_CMD_PARAMETER:
+				wprintw(wp, "invalid parameter to command option");
 				if (msg) {
 					wprintw(wp, ": ");
 					va_start(args, msg);

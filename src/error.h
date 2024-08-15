@@ -30,8 +30,9 @@ enum {	NO_ERROR,		/*!< no error */
 	END_OF_FILE,		/*!< premature end of file error */
 	FILE_FORMAT_ERROR,	/*!< invalid file format error */
 	INVALID_CMDLINE,	/*!< invalid command line, specific below */
-	INVALID_CMD_OPTION,	/*!< invalid command-line option */
-	INVALID_CMD_ARGUMENT,	/*!< invalid argument to command-line option */
+	INVALID_SUBCMD,		/*!< invalid subcommand */
+	INVALID_CMD_OPTION,	/*!< invalid command-line option, e.g. -v */
+	INVALID_CMD_PARAMETER,	/*!< invalid parameter to command-line argument */
 	INVALID_USER_INPUT,	/*!< invalid user setup */
 	INTERNAL_MISMATCH,	/*!< data does not match in some way it must */
 	INTERNAL_ERROR,		/*!< internal error */
