@@ -295,6 +295,11 @@ static void RNG_Init(RNGtype kind, Int32 seed)
     }
 }
 
+void RNG_Init_MT(Int32 seed)
+{
+	RNG_Init(MERSENNE_TWISTER, seed);
+} /* RNG_Init_MT */
+
 static void Randomize(RNGtype kind)
 {
 /* Only called by  GetRNGstate() when there is no .Random.seed */

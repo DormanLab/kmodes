@@ -68,6 +68,7 @@ double unif_rand(void);
 //double exp_rand(void);
 
 typedef unsigned int Int32;
+void RNG_Init_MT(Int32 seed);	/* initialize Mersenne twister */
 double * user_unif_rand(void);
 void user_unif_init(Int32);
 int * user_unif_nseed(void);
