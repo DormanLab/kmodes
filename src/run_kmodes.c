@@ -2346,6 +2346,8 @@ int simulate_data(data *dat, options *opt)
 								"%f\n", Pt[0]);
 	opt->sim_between_prob = Pt[0];
 
+	int n_attempts = 0;
+
 	do {
 		/* simulate modes */
 		for (unsigned int j = 0; j < dat->n_coordinates; ++j) {
@@ -2383,7 +2385,15 @@ int simulate_data(data *dat, options *opt)
 			if (!same)
 				++opt->true_K;
 		}
-	} while (opt->require_sim_K && opt->true_K < opt->sim_K);
+		++n_attempts;
+	} while (opt->require_sim_K && opt->true_K < opt->sim_K && n_attempts < 100);
+
+	if (n_attempts == 100) {
+		mmessage(WARNING_MSG, NO_ERROR, "Could not simulate K=%u "
+			"distinct modes after %u attempts.\n", opt->sim_K,
+								n_attempts);
+		goto ABORT_SIMULATE_DATA;
+	}
 
 	if (opt->true_K < opt->sim_K) {
 		mmessage(WARNING_MSG, NO_ERROR, "Asked to simulate %u modes, "
