@@ -851,7 +851,7 @@ static inline double weighted_cost_to_join(size_t **nkt, data_t *a, data_t *c,
 
 	for (unsigned int j = 0; j < p; ++j) {
 		if (fxn_debug) {
-			debug_msg(fxn_debug, 0, "%zu (%u):", j, a[j]);
+			debug_msg(fxn_debug, 0, "%u (%u):", j, a[j]);
 			for (unsigned int l = 0; l < __nj[j]; ++l)
 				debug_msg_cont(fxn_debug, 0, " %zu", nkt[j][l]);
 			debug_msg_cont(fxn_debug, 0, " ");
