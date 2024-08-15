@@ -44,6 +44,12 @@ This kmodes software has been tested under Linux and MacOS.
 	    devtools::install_github("DormanLab/kmodes")
 	    ```
 
+	1. Load the k-modes package:
+
+	    ```sh
+	    library(kmodes)
+	    ```
+
 	1. See the ```demo(kmodes)``` and help ```?kmodes``` for more information.
 
 1. C executable <a name = "Cinstallation" />
@@ -76,6 +82,8 @@ This kmodes software has been tested under Linux and MacOS.
 	
 # Tutorial <a name = "tutorial" />
 
+Demos and help for the R version are available via ```demo(kmodes)``` and help ```?kmodes``` from within R after loading the k-modes library. This is a tutorial for the command-line tool.
+
 For this mini-tutorial, we assume you have compiled the executable ```run_kmodes``` and have copied it into the demo directory, where you will carry out this tutorial.
 All the files created in this tutorial are in the `demo` directory, except for simulated data, which is in `../data/sim.txt`.  Beware that you will overwrite the files in the demo directory if you repeat these commands. If you want to skip the simulation in step 1 and analyze the existing data in directory `../data`, you should replace `sim.txt` in the subsequent commands with `../data/sim.txt`.
 
@@ -105,11 +113,12 @@ We inform ```run_kmodes``` that the true cluster memberships are given in the fi
 4. Compare of the last line of output on my system shows:
 ```
 tail -n 1 sim.h*.out
+```
+```sh
 ==> sim.h97.out <==
 1843 3.290000 0.093054 1887.360000 8.116644 0.916890 0.014290 0.929269 0.011482 0.102328 0.016519 0.410692 100
 ==> sim.hw.out <==
 1843 1.530000 0.051875 1868.530000 6.822074 0.947685 0.012844 0.959317 0.009732 0.058391 0.013943 0.365033 100
-
 ```
 These numbers are the minimum value of objective function, the average and standard deviation of the number of iterations, the average and standard deviation of the objective function, the average and standard deviation of the adjusted RAND index, the average and standard deviation of the normalized mutual information, the average and standard deviation of the normalized variation of information, the total time taken, and the number of initializations.
 We can see that Huang's algorithm took more time and obtained substantially higher average values of the objective function, but both methods found the true solution handily (see `maximum ARI` in the output file or watch the terminal output as it scrolls past).
