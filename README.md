@@ -446,6 +446,7 @@ RUN_KMODES
 
 # Acknowledgements <a name = "acknowledgements" />
 
+- This software makes use of some of the [Rmath library](https://rstudio.github.io/r-manuals/r-admin/The-standalone-Rmath-library.html), which is released under [GNU LGPL](https://www.r-project.org/Licenses/).
 - This software makes use of the [R8lib library](https://people.sc.fsu.edu/~jburkardt/c_src/r8lib/r8lib.html), which was released under [GNU LGPL](https://www.gnu.org/licenses/lgpl-3.0.en.html).
 - MacQueen's version of the k-modes algorithm was published in [Huang (1997)](https://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.6.4718).
 - Lloyd's version of the k-modes algorithm was published in [Chaturvedi _et al._ (2001)](https://doi.org/10.1007/s00357-001-0004-3).
