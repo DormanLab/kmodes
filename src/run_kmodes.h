@@ -19,6 +19,7 @@ typedef struct _data data;
  */
 struct _options {
 	/* model */
+	double missing_proportion;	/*<! mcar proportion */
 	unsigned int K;		/*<! number of clusters */
 
 	/* data */

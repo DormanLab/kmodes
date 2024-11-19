@@ -1000,6 +1000,7 @@ int make_options(options **opt) {
 	(*opt)->true_cluster_size = NULL;
 	(*opt)->true_K = 0;
 	(*opt)->missing_value = UINT32_MAX;
+	(*opt)->missing_proportion = 0;
 	(*opt)->n_init = 1;
 	(*opt)->n_inner_init = 1;
 	(*opt)->n_max_iter = 10000;
@@ -1211,11 +1212,19 @@ int parse_options(options *opt, int argc, const char **argv)
 				goto CMDLINE_ERROR;
 			}
 			/* --missing INT */
-			if (!strncmp(&argv[i][j], "mi", 2)) {
+			if (!strncmp(&argv[i][j], "mis", 3)) {
 				opt->missing_value = strtoul(argv[i+1], NULL, 0);
 				debug_msg(MINIMAL <= fxn_debug, opt->quiet,
 							"Missing value: %u\n",
 							opt->missing_value);
+				++i;
+				break;
+			/* --mcar FLT */
+			} else if (!strncmp(&argv[i][j], "mc", 2)) {
+				opt->missing_proportion = atof(argv[i+1]);
+				debug_msg(MINIMAL <= fxn_debug, opt->quiet,
+						"Missing proportion: %f\n",
+						opt->missing_proportion);
 				++i;
 				break;
 			}
@@ -2651,6 +2660,13 @@ int simulate_data(data *dat, options *opt)
 				data_t c_ancestor = opt->sim_modes[k][j];
 				data_t l = 0;
 
+				if (opt->missing_proportion > 0 &&
+					unif_rand() <= opt->missing_proportion) {
+					dat->data[i*dat->n_coordinates + j]
+							= opt->missing_value;
+					continue;
+				}
+
 				/* choose coordinate */
 				r = unif_rand();
 				for (dsum = Pt[c_ancestor*opt->sim_n_categories];
@@ -4021,6 +4037,8 @@ void fprint_usage(FILE *fp, const char *cmdname, void *obj)
 		kmodes_fprintf(fp, ").\n");
 	kmodes_fprintf(fp, "\t-1\n\t\t"
 		"Subtract 1 from the observation categories (Default: %s).\n", opt->subtract_one ? "yes" : "no");
+	kmodes_fprintf(fp, "\t--mcar FLOAT\n\t\t"
+		"Missing completely at random proportion.\n");
 	kmodes_fprintf(fp, "\t--missing INT\n\t\t"
 		"Which integer represents missing values in input file "
 				"(Default: %u).\n", opt->missing_value);
